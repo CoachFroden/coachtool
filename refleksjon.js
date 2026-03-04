@@ -160,6 +160,24 @@ async function loadAndRenderRefleksjoner(playerId) {
   }
 
   const entries = await fetchRefleksjoner(playerId);
+  
+  let seasonGoal = "";
+
+const goalSnap = await getDoc(doc(db, "seasonGoals", playerId));
+
+if (goalSnap.exists()) {
+  seasonGoal = goalSnap.data().goal || "";
+}
+
+  if (seasonGoal) {
+  list.innerHTML = `
+    <div class="season-goal-line">
+      <strong>Spillerens mål for sesongen:</strong> ${seasonGoal}
+    </div>
+  `;
+} else {
+  list.innerHTML = "";
+}
 
   selWeek.innerHTML = `<option value="">Alle</option>`;
 
@@ -183,7 +201,7 @@ async function loadAndRenderRefleksjoner(playerId) {
     return;
   }
 
- list.innerHTML = filtered.map(e => `
+ list.insertAdjacentHTML("beforeend", filtered.map(e => `
   <div class="ref-item collapsible" data-id="${e.id}">
     
     <div class="ref-item-header">
@@ -201,18 +219,10 @@ async function loadAndRenderRefleksjoner(playerId) {
         <div><span class="k">Neste uke:</span> ${e.improveThing || "-"}</div>
         <div><span class="k">Til trener:</span> ${e.coachNote || "-"}</div>
       </div>
-
-      <div class="coach-feedback-box">
-        <label>Din tilbakemelding</label>
-        <textarea id="fb-${e.id}" rows="3">${e.coachFeedback || ""}</textarea>
-        <button onclick="saveFeedback('${playerId}','${e.id}')">
-          Lagre tilbakemelding
-        </button>
-      </div>
     </div>
 
   </div>
-`).join("");
+`).join(""));
 
 const items = list.querySelectorAll(".collapsible");
 
@@ -268,26 +278,6 @@ items.forEach(item => {
 document.addEventListener("click", () => {
   items.forEach(i => i.classList.remove("open"));
 });
-
-window.saveFeedback = async function(playerId, entryId) {
-
-  const textarea = document.getElementById(`fb-${entryId}`);
-  const value = textarea.value.trim();
-
-  await updateDoc(
-    doc(db, "refleksjoner", playerId, "entries", entryId),
-    {
-      coachFeedback: value,
-      coachFeedbackUpdatedAt: serverTimestamp()
-    }
-  );
-
-  textarea.style.border = "2px solid #22c55e";
-
-  setTimeout(() => {
-    textarea.style.border = "";
-  }, 1000);
-};
 
 const toggleBtn = document.getElementById("approvalToggle");
 const dropdown = document.getElementById("approvalDropdown");
