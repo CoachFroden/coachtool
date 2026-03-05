@@ -87,11 +87,14 @@ async function loadPreviousFeedback() {
 
   if (!playerId) return;
 
-  const q = query(
-    collection(db, "feedback"),
-    where("playerId", "==", playerId),
-    orderBy("createdAt", "desc")
-  );
+const type = document.getElementById("feedbackType").value;
+
+const q = query(
+  collection(db, "feedback"),
+  where("playerId", "==", playerId),
+  where("type", "==", type),
+  orderBy("createdAt", "desc")
+);
 
   const snap = await getDocs(q);
 
@@ -118,6 +121,7 @@ generateBtn.addEventListener("click", async () => {
 
   const playerId = document.getElementById("playerSelect").value;
   const type = document.getElementById("feedbackType").value;
+  console.log("TYPE VALGT:", type);
 
 
   if (!playerId) {
@@ -129,9 +133,42 @@ generateBtn.addEventListener("click", async () => {
     generateBtn.disabled = true;
     generateBtn.textContent = "Genererer...";
 
-    const generateFeedback = httpsCallable(functions, "generatePlayerFeedback");
+let result;
 
-    const result = await generateFeedback({ playerId, type });
+if (type === "weekly") {
+
+  const fn = httpsCallable(functions, "generatePlayerFeedback");
+  result = await fn({ playerId, type: "weekly" });
+
+}
+
+if (type === "monthly") {
+
+  const fn = httpsCallable(functions, "generateMonthlyFeedback");
+
+  const now = new Date();
+
+  result = await fn({
+    playerId,
+    year: now.getFullYear(),
+    month: now.getMonth() + 1
+  });
+
+}
+
+if (type === "season") {
+
+  const fn = httpsCallable(functions, "generateSeasonFeedback");
+
+  const now = new Date();
+
+  result = await fn({
+    playerId,
+    year: now.getFullYear(),
+    season: "spring"
+  });
+
+}
 	
 	const textarea = document.querySelector("textarea");
 textarea.value = result.data.feedback;
