@@ -62,6 +62,65 @@ async function fetchRefleksjoner(playerId) {
   }));
 }
 
+
+/* =========================
+   ULeste refleksjoner
+========================= */
+
+async function countUnreadReflections(){
+
+  const users = await fetchUsers();
+  let unread = 0;
+
+  for(const u of users){
+
+    const snap = await getDocs(
+      collection(db,"refleksjoner",u.uid,"entries")
+    );
+
+    snap.docs.forEach(d=>{
+      const data = d.data();
+
+      if(!data.coachRead){
+        unread++;
+      }
+    });
+
+  }
+
+  updateUnreadBadge(unread);
+
+}
+
+
+function updateUnreadBadge(count){
+
+  const badge = document.getElementById("refUnreadBadge");
+  const dot = document.querySelector(".dot");
+
+  if(!badge) return;
+
+  if(count > 0){
+
+    badge.style.display = "inline-block";
+    badge.textContent = `${count} nye`;
+
+    if(dot){
+      dot.style.background = "#ef4444";
+    }
+
+  }else{
+
+    badge.style.display = "none";
+
+    if(dot){
+      dot.style.background = "#22c55e";
+    }
+
+  }
+
+}
+
 /* =====================================================
    GODKJENNING AV BRUKERE
 ===================================================== */
@@ -121,7 +180,9 @@ console.log("All users data:", snap.docs.map(d => d.data()));
 
 async function initCoachRefleksjonUI() {
 
-  await loadPendingUsersUI();
+await loadPendingUsersUI();
+await countUnreadReflections();
+await loadUnreadRefleksjoner();
 
   const selPlayer = document.getElementById("refPlayerSelect");
   const selWeek = document.getElementById("refWeekSelect");
@@ -142,6 +203,74 @@ async function initCoachRefleksjonUI() {
 
   selPlayer.onchange = () => loadAndRenderRefleksjoner(selPlayer.value);
   selWeek.onchange = () => loadAndRenderRefleksjoner(selPlayer.value);
+}
+
+async function loadUnreadRefleksjoner(){
+
+  const container = document.getElementById("refInbox");
+  if(!container) return;
+
+  const users = await fetchUsers();
+
+  let html = "";
+  let count = 0;
+
+  for(const u of users){
+
+    const snap = await getDocs(
+      collection(db,"refleksjoner",u.uid,"entries")
+    );
+
+    snap.docs.forEach(d=>{
+
+      const r = d.data();
+
+      if(!r.coachRead){
+
+        count++;
+
+        html += `
+        <div class="ref-inbox-item"
+          onclick="openUnreadRef('${u.uid}', '${r.week}')">
+
+          ${u.name || u.email} – uke ${r.week}
+
+        </div>
+        `;
+
+      }
+
+    });
+
+  }
+
+  if(count === 0){
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="ref-inbox-title">
+      🔴 Nye refleksjoner (${count})
+    </div>
+    ${html}
+  `;
+}
+
+window.openUnreadRef = function(uid, week){
+
+  const playerSelect = document.getElementById("refPlayerSelect");
+  const weekSelect = document.getElementById("refWeekSelect");
+
+  playerSelect.value = uid;
+
+  loadAndRenderRefleksjoner(uid).then(()=>{
+
+    weekSelect.value = week;
+    loadAndRenderRefleksjoner(uid);
+
+  });
+
 }
 
 /* =====================================================
@@ -202,7 +331,7 @@ if (goalSnap.exists()) {
   }
 
  list.insertAdjacentHTML("beforeend", filtered.map(e => `
-  <div class="ref-item collapsible" data-id="${e.id}">
+  <div class="ref-item collapsible ${!e.coachRead ? 'unread' : ''}" data-id="${e.id}">
     
     <div class="ref-item-header">
       <div class="ref-item-title">
@@ -232,16 +361,30 @@ items.forEach(item => {
 
   if (!header) return;
 
-  header.addEventListener("click", (event) => {
-    event.stopPropagation();
+header.addEventListener("click", async (event) => {
 
-    // Lukk alle først
-    items.forEach(i => i.classList.remove("open"));
+  event.stopPropagation();
 
-    // Åpne denne
-    item.classList.add("open");
-  });
+  items.forEach(i => i.classList.remove("open"));
 
+  item.classList.add("open");
+item.classList.remove("unread");
+
+  const refId = item.dataset.id;
+
+  await updateDoc(
+    doc(db,"refleksjoner",playerId,"entries",refId),
+    {
+      coachRead: true,
+      coachReadAt: serverTimestamp()
+    }
+  );
+  
+  await countUnreadReflections();
+await loadUnreadRefleksjoner();
+
+});
+  
 });
 
 document.addEventListener("click", (event) => {

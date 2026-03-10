@@ -19,7 +19,11 @@
     <button class="back-btn" onclick="goBack()">←</button>
 
     <div>
-      <h1>Refleksjon <span class="dot"></span></h1>
+      <h1>
+  Refleksjon 
+  <span class="dot"></span>
+  <span id="refUnreadBadge" class="ref-badge"></span>
+</h1>
       <p class="ref-sub">
         Les spillernes ukerefleksjoner (kun for trener).
       </p>
@@ -34,6 +38,8 @@
           <div id="approvalDropdown" class="ref-approval-dropdown"></div>
         </div>
       </header>
+	  
+	  <div id="refInbox" class="ref-inbox"></div>
 
       <div class="ref-controls">
         <div>
