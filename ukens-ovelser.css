@@ -25,7 +25,7 @@ h1{
 
 /* Seksjonstitler */
 h3{
-  color:#cbd5f5;
+  color:#9fb3d9;
   margin-top:20px;
   margin-bottom:10px;
   font-size:16px;
@@ -169,4 +169,42 @@ button[onclick="history.back()"]{
 
 .exercise-row select{
   margin-bottom:0;
+}
+
+.remove-btn{
+  background:#e74c3c;
+  color:white;
+}
+
+#focusInput{
+  width:100%;
+  padding:14px;
+  border-radius:10px;
+  border:none;
+  background:#1e2a40;
+  color:white;
+  margin-top:10px;
+  box-sizing:border-box;
+}
+
+.back-btn{
+  background:transparent;
+  border:none;
+  color:#9fb3d9;
+  font-size:14px;
+  margin-top:25px;
+
+  display:block;
+  margin-left:auto;
+  margin-right:auto;
+
+  opacity:0.7;
+}
+
+label{
+  display:block;
+  margin-top:18px;
+  margin-bottom:6px;
+  color:#9fb3d9;
+  font-weight:500;
 }

@@ -31,6 +31,7 @@ function getWeekNumber() {
 const currentWeek = getWeekNumber();
 
 const weekSelect = document.getElementById("weekSelect");
+weekSelect.addEventListener("change", loadWeekData);
 
 if(weekSelect){
 
@@ -60,6 +61,9 @@ if(weekSelect){
     weekSelect.appendChild(option);
 
   }
+  
+  weekSelect.value = "week" + currentWeek;
+loadWeekData();
 
 }
 
@@ -242,6 +246,60 @@ window.removeExercise = function () {
   }
 
 };
+
+async function loadWeekData(){
+
+  const weekChoice = document.getElementById("weekSelect").value;
+
+  if(!weekChoice) return;
+
+  const ref = doc(db, "weeklyExercises", weekChoice);
+  const snap = await getDoc(ref);
+
+  const focusInput = document.getElementById("focusInput");
+  const container = document.getElementById("exerciseContainer");
+
+  container.innerHTML = "";
+
+  if(!snap.exists()){
+    focusInput.value = "";
+    return;
+  }
+
+  const data = snap.data();
+
+  /* ===== FYLL FOKUS ===== */
+
+  focusInput.value = data.focus || "";
+
+  /* ===== FYLL ØVELSER ===== */
+
+  if(data.exercises){
+
+    data.exercises.forEach(ex => {
+
+      const div = document.createElement("div");
+      div.className = "exercise-row";
+
+      div.innerHTML = `
+        <input class="exerciseTitle" value="${ex.title}">
+
+        <select class="exerciseVideo">
+          <option value="kantlop-innlegg.mp4">Kantløp innlegg</option>
+          <option value="kantoverlapp.mp4">Kantoverlapp</option>
+        </select>
+      `;
+
+      container.appendChild(div);
+
+      div.querySelector(".exerciseVideo").value =
+        ex.video.replace("ovelser/","");
+
+    });
+
+  }
+
+}
 
 /* ==============================
    Logout

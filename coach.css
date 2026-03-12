@@ -198,3 +198,13 @@ body{
   margin-top: -6px;
   margin-bottom: 4px;
 }
+
+#focusInput{
+  width:100%;
+  padding:14px;
+  border-radius:10px;
+  border:none;
+  background:#1e2a40;
+  color:white;
+  margin-top:10px;
+}
