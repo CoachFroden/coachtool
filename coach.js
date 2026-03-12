@@ -31,9 +31,10 @@ function getWeekNumber() {
 const currentWeek = getWeekNumber();
 
 const weekSelect = document.getElementById("weekSelect");
-weekSelect.addEventListener("change", loadWeekData);
 
 if(weekSelect){
+
+  weekSelect.addEventListener("change", loadWeekData);
 
   const firstOption = document.createElement("option");
   firstOption.text = "Velg uke";
