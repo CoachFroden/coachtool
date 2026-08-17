@@ -1,12 +1,12 @@
-const CACHE_NAME = "samnanger-live-v2";
+const CACHE_NAME = "samnanger-live-v3";
 const APP_SHELL = [
   "./kamp-live.html?app=1",
-  "./kamp-live.css?v=20260817-3",
-  "./kamp-live.js?v=20260817-3",
+  "./kamp-live.css?v=20260817-4",
+  "./kamp-live.js?v=20260817-4",
   "./samnanger-live-manifest.json",
-  "./samnanger-live-icon-180.png",
-  "./samnanger-live-icon-192.png",
-  "./samnanger-live-icon-512.png"
+  "./samnanger-g14-live-icon-180.png",
+  "./samnanger-g14-live-icon-192.png",
+  "./samnanger-g14-live-icon-512.png"
 ];
 
 self.addEventListener("install", event => {
