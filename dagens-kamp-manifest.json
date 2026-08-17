@@ -1,0 +1,26 @@
+{
+  "id": "./dagens-kamp.html",
+  "name": "Dagens kamp",
+  "short_name": "Kampdag",
+  "description": "Åpne dagens kamp direkte i kampregistreringen.",
+  "start_url": "./dagens-kamp.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#050914",
+  "theme_color": "#050b18",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "kampdag-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "kampdag-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

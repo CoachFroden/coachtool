@@ -80,6 +80,7 @@ a {
 .matchday-mark {
   position: relative;
   display: grid;
+  overflow: hidden;
   flex: 0 0 58px;
   width: 58px;
   height: 58px;
@@ -100,9 +101,11 @@ a {
   border-radius: 13px;
 }
 
-.matchday-ball {
-  font-size: 25px;
-  filter: saturate(0.75);
+.matchday-app-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 17px;
 }
 
 .matchday-eyebrow {
