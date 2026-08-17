@@ -39,7 +39,7 @@ const listEl = document.getElementById("matchList");
 const statusEl = document.getElementById("status");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
-const KAMP_PAGE_VERSION = "20260817-9";
+const KAMP_PAGE_VERSION = "20260817-10";
 
 function getTodayString() {
   const today = new Date();

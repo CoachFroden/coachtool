@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="styles.css?v=20260817-9" />
+<link rel="stylesheet" href="styles.css?v=20260817-10" />
 </head>
 <body>
 <button id="backBtn" class="back-btn">←</button>
@@ -91,10 +91,16 @@
   </div>
 
   <div class="live-share-setup">
-    <button id="shareLiveMatchBtn" type="button">
-      <span aria-hidden="true">●</span>
-      Del livevisning
-    </button>
+    <div class="live-share-actions">
+      <button id="enableReminderSoundBtn" type="button">
+        <span aria-hidden="true">🔔</span>
+        Aktiver lyd
+      </button>
+      <button id="shareLiveMatchBtn" type="button">
+        <span aria-hidden="true">●</span>
+        Del livevisning
+      </button>
+    </div>
     <p id="shareLiveMatchStatus" role="status" aria-live="polite"></p>
   </div>
 
@@ -532,7 +538,7 @@
   </div>
 </div>
 
- <script type="module" src="app.js?v=20260817-9"></script>
+ <script type="module" src="app.js?v=20260817-10"></script>
 
 </body>
 </html>

@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-9";
+const KAMP_PAGE_VERSION = "20260817-10";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -285,6 +285,88 @@ const REMINDER_REPEAT_MS = 60 * 1000;
 
 let activeReminderKey = null;
 let lastReminderAt = 0;
+let reminderAudioContext = null;
+let reminderAudioUnlocked = false;
+
+function getReminderAudioContext() {
+  if (reminderAudioContext) return reminderAudioContext;
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+
+  reminderAudioContext = new AudioContextClass();
+  return reminderAudioContext;
+}
+
+async function unlockReminderAudio() {
+  const audioContext = getReminderAudioContext();
+  if (!audioContext) return false;
+
+  try {
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    // En uhørbar, svært kort tone låser opp lyd på iPhone etter et brukertrykk.
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.02);
+    reminderAudioUnlocked = audioContext.state === "running";
+    return reminderAudioUnlocked;
+  } catch (error) {
+    console.warn("Kunne ikke aktivere lydvarsler:", error);
+    return false;
+  }
+}
+
+function playReminderTone(reminderKey) {
+  const audioContext = getReminderAudioContext();
+  if (!audioContext || !reminderAudioUnlocked || audioContext.state !== "running") {
+    return;
+  }
+
+  const frequencies = reminderKey === "match-start"
+    ? [660, 880, 1040]
+    : [880, 660, 880];
+  const startAt = audioContext.currentTime + 0.02;
+
+  frequencies.forEach((frequency, index) => {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const toneStart = startAt + index * 0.24;
+    const toneEnd = toneStart + 0.16;
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, toneStart);
+    gain.gain.setValueAtTime(0.0001, toneStart);
+    gain.gain.exponentialRampToValueAtTime(0.22, toneStart + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, toneEnd);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(toneStart);
+    oscillator.stop(toneEnd + 0.02);
+  });
+}
+
+document.addEventListener("pointerdown", unlockReminderAudio, { capture: true });
+document.addEventListener("keydown", unlockReminderAudio, { capture: true });
+
+document.getElementById("enableReminderSoundBtn")?.addEventListener("click", async event => {
+  const button = event.currentTarget;
+  const enabled = await unlockReminderAudio();
+
+  if (enabled) {
+    button.classList.add("is-active");
+    button.innerHTML = '<span aria-hidden="true">✓</span> Lydvarsler på';
+    playReminderTone("match-start");
+  } else {
+    button.textContent = "Kunne ikke aktivere lyd";
+  }
+});
 
 function clearMatchReminder() {
   matchReminder.classList.add("hidden");
@@ -696,8 +778,10 @@ function showMatchReminder(key, message, button) {
   button?.classList.add("reminder-pulse");
   document.title = `⚠️ ${message}`;
 
+  playReminderTone(key);
+
   if (navigator.vibrate) {
-    navigator.vibrate([200, 120, 200]);
+    navigator.vibrate([300, 140, 300, 140, 500]);
   }
 }
 
