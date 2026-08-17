@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-8";
+const KAMP_PAGE_VERSION = "20260817-9";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -4686,6 +4686,22 @@ setTimeout(() => {
 setTimeout(() => {
   updatePlayingTimeUI();
 }, 0);
+
+// Kamper som ble startet før den faste Live-kanalen ble innført må også
+// overta Live-visningen når de åpnes igjen på trenerens enhet.
+if (["LIVE", "TEMP_STOPPED", "HALFTIME", "PAUSED"].includes(matchState.status)) {
+  matchState.liveSharingEnabled = true;
+
+  try {
+    await updateDoc(matchRef, {
+      liveSharingEnabled: true,
+      updatedAt: serverTimestamp()
+    });
+    await savePublicLiveUpdate();
+  } catch (error) {
+    console.error("Kunne ikke koble den pågående kampen til Live-visningen:", error);
+  }
+}
 
 subscribeToActiveMatch(matchRef);
 
