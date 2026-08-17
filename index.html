@@ -17,10 +17,10 @@
 <body>
   <main class="coach-container">
 
-    <h1>Trener</h1>
-    <p class="coach-sub">Logg inn eller registrer deg</p>
+    <h1 id="authTitle">Trener</h1>
+    <p id="authSubtitle" class="coach-sub">Logg inn for å fortsette</p>
 
-    <div class="coach-card" style="max-width:400px;margin:30px auto;">
+    <div class="coach-card">
 
       <input
         type="email"
@@ -42,25 +42,30 @@
       <input
         type="password"
         id="password2"
-        placeholder="Gjenta passord (kun ved registrering)"
+        placeholder="Gjenta passord"
         class="login-input"
         autocomplete="new-password"
+        hidden
       />
 
-      <button id="loginBtn" class="logout-btn" style="margin-top:15px;">
+      <button id="loginBtn" class="logout-btn primary-action">
         Logg inn
       </button>
 
-      <button id="registerBtn" class="logout-btn" style="margin-top:10px; opacity:.9;">
-        Registrer deg
+      <button id="registerBtn" class="auth-mode-btn" type="button">
+        Opprett ny bruker
       </button>
 
-      <button id="resendVerifyBtn" class="logout-btn" style="margin-top:10px; display:none; opacity:.85;">
+      <button id="backToLoginBtn" class="auth-mode-btn" type="button" hidden>
+        Tilbake til innlogging
+      </button>
+
+      <button id="resendVerifyBtn" class="logout-btn resend-button" type="button" hidden>
         Send verifiseringsmail på nytt
       </button>
 
-      <p id="errorMsg" style="color:#ef4444;margin-top:15px;"></p>
-      <p id="infoMsg" style="color:#22c55e;margin-top:10px;"></p>
+      <p id="errorMsg" role="alert"></p>
+      <p id="infoMsg" role="status"></p>
 
     </div>
 

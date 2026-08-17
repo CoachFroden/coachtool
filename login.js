@@ -21,7 +21,9 @@ const password2Input = document.getElementById("password2");
 
 const loginBtn = document.getElementById("loginBtn");
 const registerBtn = document.getElementById("registerBtn");
+const backToLoginBtn = document.getElementById("backToLoginBtn");
 const resendVerifyBtn = document.getElementById("resendVerifyBtn");
+const authSubtitle = document.getElementById("authSubtitle");
 
 const errorMsg = document.getElementById("errorMsg");
 const infoMsg = document.getElementById("infoMsg");
@@ -33,6 +35,32 @@ function setError(msg) {
 function setInfo(msg) {
   infoMsg.textContent = msg || "";
   errorMsg.textContent = "";
+}
+
+let isRegisterMode = false;
+
+function setAuthMode(mode) {
+  isRegisterMode = mode === "register";
+  password2Input.hidden = !isRegisterMode;
+  loginBtn.hidden = isRegisterMode;
+  backToLoginBtn.hidden = !isRegisterMode;
+
+  registerBtn.textContent = isRegisterMode
+    ? "Registrer bruker"
+    : "Opprett ny bruker";
+  registerBtn.classList.toggle("logout-btn", isRegisterMode);
+  registerBtn.classList.toggle("primary-action", isRegisterMode);
+  registerBtn.classList.toggle("auth-mode-btn", !isRegisterMode);
+
+  passwordInput.autocomplete = isRegisterMode
+    ? "new-password"
+    : "current-password";
+  authSubtitle.textContent = isRegisterMode
+    ? "Opprett en bruker for trenerteamet"
+    : "Logg inn for å fortsette";
+
+  if (!isRegisterMode) password2Input.value = "";
+  setError("");
 }
 
 function routeByRole(role) {
@@ -49,8 +77,14 @@ function routeByRole(role) {
 
 // REGISTRER (alltid assistantCoach)
 registerBtn.onclick = async () => {
+  if (!isRegisterMode) {
+    setAuthMode("register");
+    password2Input.focus();
+    return;
+  }
+
   setError("");
-  resendVerifyBtn.style.display = "none";
+  resendVerifyBtn.hidden = true;
 
   const email = emailInput.value.trim();
   const pass = passwordInput.value.trim();
@@ -72,8 +106,10 @@ try {
     createdAt: serverTimestamp()
   });
 
-  setInfo("Registrert! Sjekk e-post og trykk på verifiseringslinken før du logger inn.");
   await signOut(auth);
+  passwordInput.value = "";
+  setAuthMode("login");
+  setInfo("Registrert! Sjekk e-post og trykk på verifiseringslinken før du logger inn.");
 
 } catch (err) {
   console.log(err);
@@ -84,7 +120,7 @@ try {
 // LOGIN
 loginBtn.onclick = async () => {
   setError("");
-  resendVerifyBtn.style.display = "none";
+  resendVerifyBtn.hidden = true;
 
   const email = emailInput.value.trim();
   const pass = passwordInput.value.trim();
@@ -115,7 +151,7 @@ await setDoc(doc(collection(db, "loginLogs")), {
     // Krev e-postverifisering for assistenter (og evt andre), men IKKE for coach
     if (data.role !== "coach" && !cred.user.emailVerified) {
       setError("E-posten er ikke verifisert. Sjekk innboksen og trykk på verifiseringslinken.");
-      resendVerifyBtn.style.display = "inline-block";
+      resendVerifyBtn.hidden = false;
       return; // ikke redirect
     }
 
@@ -138,4 +174,19 @@ resendVerifyBtn.onclick = async () => {
   } catch (err) {
     setError("Kunne ikke sende verifiseringsmail på nytt.");
   }
+};
+
+[emailInput, passwordInput, password2Input].forEach(input => {
+  input.addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    if (isRegisterMode) {
+      registerBtn.click();
+    } else {
+      loginBtn.click();
+    }
+  });
+});
+
+backToLoginBtn.onclick = () => {
+  setAuthMode("login");
 };
