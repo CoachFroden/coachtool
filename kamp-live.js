@@ -4,6 +4,10 @@ import { initializeApp } from
 import {
   getFirestore,
   doc,
+  collection,
+  query,
+  orderBy,
+  limit,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -19,7 +23,8 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
-const matchId = new URLSearchParams(window.location.search).get("matchId");
+const pageParams = new URLSearchParams(window.location.search);
+const requestedMatchId = pageParams.get("matchId");
 
 const elements = {
   connectionBadge: document.getElementById("connectionBadge"),
@@ -37,11 +42,15 @@ const elements = {
   eventCount: document.getElementById("eventCount"),
   eventList: document.getElementById("eventList"),
   emptyEvents: document.getElementById("emptyEvents"),
-  pageMessage: document.getElementById("pageMessage")
+  pageMessage: document.getElementById("pageMessage"),
+  installPrompt: document.getElementById("installPrompt"),
+  installAppBtn: document.getElementById("installAppBtn"),
+  installHelp: document.getElementById("installHelp")
 };
 
 let matchData = null;
 let clockInterval = null;
+let deferredInstallPrompt = null;
 
 function timestampToMs(value) {
   if (Number.isFinite(value)) return value;
@@ -288,30 +297,169 @@ function showPageMessage(message) {
   elements.pageMessage.classList.remove("hidden");
 }
 
-if (!matchId) {
-  setConnectionState("is-error", "Feil lenke");
-  showPageMessage("Kamp-lenken mangler kamp-ID. Be treneren sende live-lenken på nytt.");
-} else {
+function getTodayString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getUpdatedAtMs(match) {
+  return timestampToMs(match.data.updatedAt) || 0;
+}
+
+function selectFeaturedMatch(matches) {
+  if (matches.length === 0) return null;
+
+  const today = getTodayString();
+  const activeStatuses = new Set(["LIVE", "TEMP_STOPPED", "HALFTIME", "PAUSED"]);
+  const activeToday = matches
+    .filter(match => {
+      const status = String(match.data.status || "").toUpperCase();
+      const date = match.data.meta?.date || "";
+      return activeStatuses.has(status) && (!date || date === today);
+    })
+    .sort((a, b) => getUpdatedAtMs(b) - getUpdatedAtMs(a));
+
+  if (activeToday.length > 0) return activeToday[0];
+
+  const upcoming = matches
+    .filter(match => {
+      const status = String(match.data.status || "").toUpperCase();
+      const date = match.data.meta?.date || "";
+      return !activeStatuses.has(status) && status !== "ENDED" && (!date || date >= today);
+    })
+    .sort((a, b) => {
+      const aKey = `${a.data.meta?.date || today} ${a.data.meta?.startTime || "99:99"}`;
+      const bKey = `${b.data.meta?.date || today} ${b.data.meta?.startTime || "99:99"}`;
+      return aKey.localeCompare(bKey);
+    });
+
+  if (upcoming.length > 0) return upcoming[0];
+
+  return [...matches].sort((a, b) => getUpdatedAtMs(b) - getUpdatedAtMs(a))[0];
+}
+
+function handleMatchSnapshot(snapshot) {
+  if (!snapshot.exists()) {
+    setConnectionState("is-connecting", "Venter");
+    showPageMessage("Livevisningen er ikke startet ennå. Siden oppdateres automatisk.");
+    return;
+  }
+
+  elements.pageMessage.classList.add("hidden");
+  setConnectionState("is-live", "Tilkoblet");
+  renderMatch(snapshot.data());
+}
+
+function subscribeToRequestedMatch(matchId) {
   const matchRef = doc(db, "publicMatches", matchId);
   onSnapshot(
     matchRef,
-    snapshot => {
-      if (!snapshot.exists()) {
-        setConnectionState("is-connecting", "Venter");
-        showPageMessage("Livevisningen er ikke startet ennå. Siden oppdateres automatisk.");
-        return;
-      }
-
-      elements.pageMessage.classList.add("hidden");
-      setConnectionState("is-live", "Tilkoblet");
-      renderMatch(snapshot.data());
-    },
+    handleMatchSnapshot,
     error => {
       console.error("Kunne ikke lese livekampen:", error);
       setConnectionState("is-error", "Frakoblet");
       showPageMessage("Kunne ikke hente kampoppdateringene. Sjekk nettet og prøv igjen.");
     }
   );
+}
+
+function subscribeToFeaturedMatch() {
+  const liveFeed = query(
+    collection(db, "publicMatches"),
+    orderBy("updatedAt", "desc"),
+    limit(30)
+  );
+
+  onSnapshot(
+    liveFeed,
+    snapshot => {
+      const matches = snapshot.docs.map(matchDoc => ({
+        id: matchDoc.id,
+        data: matchDoc.data()
+      }));
+      const selectedMatch = selectFeaturedMatch(matches);
+
+      if (!selectedMatch) {
+        setConnectionState("is-connecting", "Klar");
+        showPageMessage("Ingen kamp er delt ennå. Neste kamp vises her automatisk.");
+        return;
+      }
+
+      elements.pageMessage.classList.add("hidden");
+      setConnectionState("is-live", "Tilkoblet");
+      renderMatch(selectedMatch.data);
+    },
+    error => {
+      console.error("Kunne ikke lese livekampene:", error);
+      setConnectionState("is-error", "Frakoblet");
+      showPageMessage("Kunne ikke hente kampoppdateringene. Sjekk nettet og prøv igjen.");
+    }
+  );
+}
+
+function isStandaloneApp() {
+  return window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+}
+
+function setupInstallPrompt() {
+  if (isStandaloneApp()) return;
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isMobile = isIos || /android/i.test(navigator.userAgent) ||
+    window.matchMedia("(max-width: 760px)").matches;
+  if (!isMobile) return;
+
+  elements.installPrompt.classList.remove("hidden");
+  if (isIos) {
+    elements.installAppBtn.textContent = "Vis hvordan";
+  }
+
+  elements.installAppBtn.addEventListener("click", async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      elements.installPrompt.classList.add("hidden");
+      return;
+    }
+
+    elements.installHelp.textContent = isIos
+      ? "Trykk Del i Safari og velg «Legg til på Hjem-skjerm»."
+      : "Åpne nettlesermenyen og velg «Installer app» eller «Legg til på startskjermen».";
+    elements.installAppBtn.classList.add("hidden");
+  });
+}
+
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  elements.installPrompt.classList.remove("hidden");
+  elements.installAppBtn.textContent = "Installer";
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  elements.installPrompt.classList.add("hidden");
+});
+
+if (requestedMatchId) {
+  subscribeToRequestedMatch(requestedMatchId);
+} else {
+  subscribeToFeaturedMatch();
+}
+
+setupInstallPrompt();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./kamp-live-sw.js").catch(error => {
+      console.warn("Kunne ikke registrere appens hurtiglager:", error);
+    });
+  });
 }
 
 clockInterval = setInterval(renderClock, 1000);

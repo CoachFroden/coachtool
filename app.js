@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-6";
+const KAMP_PAGE_VERSION = "20260817-7";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -584,7 +584,7 @@ async function copyGoalOverview(text) {
 function getPublicMatchUrl() {
   const url = new URL("kamp-live.html", window.location.href);
   url.search = "";
-  url.searchParams.set("matchId", matchState.matchId);
+  url.searchParams.set("app", "1");
   return url.toString();
 }
 

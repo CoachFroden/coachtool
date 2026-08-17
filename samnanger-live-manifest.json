@@ -1,0 +1,27 @@
+{
+  "id": "./kamp-live.html?app=1",
+  "name": "Samnanger Live",
+  "short_name": "Samnanger Live",
+  "description": "Følg Samnanger-kampen med resultat, klokke og hendelser direkte.",
+  "start_url": "./kamp-live.html?app=1",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#050b14",
+  "theme_color": "#050b14",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "samnanger-live-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "samnanger-live-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
