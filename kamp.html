@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="styles.css?v=20260817-4" />
+<link rel="stylesheet" href="styles.css?v=20260817-5" />
 </head>
 <body>
 <button id="backBtn" class="back-btn">←</button>
@@ -88,6 +88,14 @@
     <button id="squadBtn">
       Endre tropp / startellever
     </button>
+  </div>
+
+  <div class="live-share-setup">
+    <button id="shareLiveMatchBtn" type="button">
+      <span aria-hidden="true">●</span>
+      Del livevisning
+    </button>
+    <p id="shareLiveMatchStatus" role="status" aria-live="polite"></p>
   </div>
 
 </div>
@@ -224,6 +232,7 @@
 
   <details class="more-actions">
     <summary>••• Flere</summary>
+    <button id="shareLiveMatchDuringBtn" type="button">Del livevisning</button>
     <button id="adjustStartBtn" type="button">Korriger kampklokke</button>
   </details>
 
@@ -538,7 +547,7 @@
   </div>
 </div>
 
- <script type="module" src="app.js?v=20260817-4"></script>
+ <script type="module" src="app.js?v=20260817-5"></script>
 
 </body>
 </html>

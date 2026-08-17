@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-4";
+const KAMP_PAGE_VERSION = "20260817-5";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -160,6 +160,7 @@ const matchState = {
   status: "NOT_STARTED",
   period: 1,
   lineupConfirmed: false,
+  liveSharingEnabled: false,
   halftimeStartedAt: null,
   firstHalfActualEndMs: null,
 
@@ -667,6 +668,83 @@ async function copyGoalOverview(text) {
   document.execCommand("copy");
   textArea.remove();
 }
+
+function getPublicMatchUrl() {
+  const url = new URL("kamp-live.html", window.location.href);
+  url.search = "";
+  url.searchParams.set("matchId", matchState.matchId);
+  return url.toString();
+}
+
+function getLiveShareFixtureLabel() {
+  const fixture = getFinalFixture();
+  return `${fixture.homeTeam} – ${fixture.awayTeam}`;
+}
+
+async function shareLiveMatch(button) {
+  const status = document.getElementById("shareLiveMatchStatus");
+  if (!matchState.matchId) {
+    if (status) status.textContent = "Kunne ikke finne kampen.";
+    return;
+  }
+
+  readMatchMetaFromUI();
+  matchState.liveSharingEnabled = true;
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = "Klargjør…";
+
+  const published = await saveLiveUpdate();
+  if (!published) {
+    button.disabled = false;
+    button.textContent = originalText;
+    if (status) status.textContent = "Kunne ikke klargjøre livevisningen. Prøv igjen.";
+    return;
+  }
+
+  const url = getPublicMatchUrl();
+  const text = `Følg ${getLiveShareFixtureLabel()} live:`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Følg kampen live", text, url });
+      button.textContent = "✓ Live-lenke delt";
+      if (status) status.textContent = "Laglederen får alle oppdateringer automatisk.";
+      setTimeout(() => {
+        button.disabled = false;
+        button.textContent = originalText;
+      }, 2200);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        button.disabled = false;
+        button.textContent = originalText;
+        return;
+      }
+      console.warn("Kunne ikke åpne delingsmenyen for livevisningen:", error);
+    }
+  }
+
+  try {
+    await copyGoalOverview(`${text}\n${url}`);
+    button.textContent = "✓ Lenke kopiert";
+    if (status) status.textContent = "Lim inn lenken i Messenger.";
+  } catch (error) {
+    console.error("Kunne ikke kopiere live-lenken:", error);
+    button.textContent = originalText;
+    if (status) status.textContent = "Kunne ikke kopiere lenken. Prøv igjen.";
+  }
+
+  setTimeout(() => {
+    button.disabled = false;
+    button.textContent = originalText;
+  }, 2200);
+}
+
+["shareLiveMatchBtn", "shareLiveMatchDuringBtn"].forEach(buttonId => {
+  const button = document.getElementById(buttonId);
+  button?.addEventListener("click", () => shareLiveMatch(button));
+});
 
 document.getElementById("shareGoalsBtn")?.addEventListener("click", async () => {
   const text = buildGoalOverviewText();
@@ -3822,12 +3900,70 @@ if (matchState.meta?.type) {
 
 try {
   await setDoc(matchRef, data, { merge: true });
+  if (matchState.liveSharingEnabled) await savePublicLiveUpdate();
   finishSaveStatus(saveVersion, true);
   console.log("Kamp avsluttet:", matchState.matchId);
 } catch (error) {
   console.error("Kunne ikke lagre kampslutt:", error);
   finishSaveStatus(saveVersion, false);
 }
+}
+
+function buildPublicMatchEvents() {
+  return matchState.events.map(event => ({
+    id: String(event.id || ""),
+    type: event.type || "text",
+    team: event.team || "",
+    playerName: event.playerName || "",
+    minute: String(event.minute || ""),
+    period: Number(event.period) || 1,
+    timeMs: Number(event.timeMs) || 0,
+    rawText: event.rawText || "",
+    createdClock: event.createdClock || "",
+    reportedAt: event.reportedAt || "",
+    edited: event.edited === true,
+    cardType: event.cardType || "",
+    outPlayerName: event.outPlayerName || "",
+    inPlayerName: event.inPlayerName || ""
+  }));
+}
+
+async function savePublicLiveUpdate() {
+  if (!matchState.liveSharingEnabled || !auth.currentUser || !matchState.matchId) {
+    return false;
+  }
+
+  const publicData = {
+    status: matchState.status,
+    period: matchState.period,
+    score: {
+      our: Number(matchState.score.our) || 0,
+      their: Number(matchState.score.their) || 0
+    },
+    timer: {
+      elapsedMs: Number(matchState.timer.elapsedMs) || 0,
+      startTimestamp: matchState.timer.startTimestamp || null
+    },
+    meta: {
+      ourTeam: matchState.meta.ourTeam || "Samnanger",
+      opponent: matchState.meta.opponent || "Motstander",
+      date: matchState.meta.date || "",
+      startTime: matchState.meta.startTime || matchState.meta.time || "",
+      venue: matchState.meta.venue || matchState.meta.venueType || "home",
+      type: matchState.meta.type || "league",
+      halfLengthMin: Number(matchState.meta.halfLengthMin) || 35
+    },
+    events: buildPublicMatchEvents(),
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    await setDoc(doc(db, "publicMatches", matchState.matchId), publicData, { merge: true });
+    return true;
+  } catch (error) {
+    console.error("Kunne ikke oppdatere offentlig livevisning:", error);
+    return false;
+  }
 }
 
 async function saveLiveUpdate() {
@@ -3862,6 +3998,7 @@ try {
     players: matchState.players.home,
     onField: matchState.squad.onField.home,
     lineupConfirmed: matchState.lineupConfirmed,
+    liveSharingEnabled: matchState.liveSharingEnabled,
     halftimeStartedAt: matchState.halftimeStartedAt,
     firstHalfActualEndMs: matchState.firstHalfActualEndMs,
     updatedAt: serverTimestamp()
@@ -3879,10 +4016,15 @@ try {
   try {
     await setDoc(matchRef, data, { merge: true });
     localStorage.setItem("lastMatchState", JSON.stringify(matchState));
+    const publicSaved = matchState.liveSharingEnabled
+      ? await savePublicLiveUpdate()
+      : true;
     finishSaveStatus(saveVersion, true);
+    return publicSaved;
   } catch (error) {
     console.error("Kunne ikke lagre kampoppdateringen:", error);
     finishSaveStatus(saveVersion, false);
+    return false;
   }
 }
 
@@ -3895,6 +4037,7 @@ try {
   matchState.status = "NOT_STARTED";
   matchState.period = 1;
   matchState.lineupConfirmed = false;
+  matchState.liveSharingEnabled = false;
   matchState.halftimeStartedAt = null;
   matchState.firstHalfActualEndMs = null;
 
@@ -4147,6 +4290,10 @@ function applyRemoteMatchData(data) {
     matchState.lineupConfirmed = data.lineupConfirmed;
   }
 
+  if (typeof data.liveSharingEnabled === "boolean") {
+    matchState.liveSharingEnabled = data.liveSharingEnabled;
+  }
+
   if (Object.prototype.hasOwnProperty.call(data, "halftimeStartedAt")) {
     matchState.halftimeStartedAt = getRemoteTimestampMs(data.halftimeStartedAt);
   }
@@ -4350,6 +4497,7 @@ awayTeamInput.value =
   });
 
 matchState.lineupConfirmed = data.lineupConfirmed ?? shouldApplyDefaultLineup;
+matchState.liveSharingEnabled = data.liveSharingEnabled === true;
 matchState.halftimeStartedAt = data.halftimeStartedAt || null;
 matchState.firstHalfActualEndMs = Number.isFinite(data.firstHalfActualEndMs)
   ? data.firstHalfActualEndMs

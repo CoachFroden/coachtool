@@ -744,6 +744,46 @@ button {
   font-weight: 700;
 }
 
+.live-share-setup {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+#shareLiveMatchBtn {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid rgba(74, 222, 128, 0.26);
+  border-radius: 12px;
+  background: rgba(22, 163, 74, 0.1);
+  box-shadow: none;
+  color: #86efac;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+#shareLiveMatchBtn span {
+  color: #22c55e;
+  font-size: 0.6rem;
+}
+
+#shareLiveMatchStatus {
+  min-height: 0;
+  margin: 7px 2px 0;
+  color: #86efac;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+#shareLiveMatchStatus:empty {
+  display: none;
+}
+
 #cardModal .card-types label:has(input[value="yellow"]:checked) {
   border-color: rgba(250, 204, 21, 0.85);
   background: rgba(250, 204, 21, 0.1);
@@ -3137,12 +3177,17 @@ section {
   display: none;
 }
 
-.more-actions #adjustStartBtn {
+.more-actions #adjustStartBtn,
+.more-actions #shareLiveMatchDuringBtn {
   width: 100%;
   margin: 0 0 8px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: #111827;
   color: #cbd5e1;
+}
+
+.more-actions #shareLiveMatchDuringBtn {
+  color: #86efac;
 }
 
 .save-status {

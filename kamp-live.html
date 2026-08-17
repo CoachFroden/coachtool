@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Live kamp</title>
+  <link rel="stylesheet" href="kamp-live.css?v=20260817-1">
+</head>
+<body>
+  <main class="live-shell">
+    <header class="live-header">
+      <div class="brand-mark" aria-hidden="true">S</div>
+      <div>
+        <p>Samnanger fotball</p>
+        <h1>Live kamp</h1>
+      </div>
+      <span id="connectionBadge" class="connection-badge is-connecting">
+        <i></i><span>Kobler til</span>
+      </span>
+    </header>
+
+    <section id="matchCard" class="match-card" aria-live="polite">
+      <div class="match-status-line">
+        <span id="statusBadge" class="status-badge is-upcoming">Kommende</span>
+        <span id="matchDate"></span>
+      </div>
+
+      <div class="score-grid">
+        <div class="team team-home">
+          <span>Hjemme</span>
+          <strong id="homeTeam">–</strong>
+        </div>
+        <div class="score">
+          <strong id="homeScore">0</strong>
+          <span>–</span>
+          <strong id="awayScore">0</strong>
+        </div>
+        <div class="team team-away">
+          <span>Borte</span>
+          <strong id="awayTeam">–</strong>
+        </div>
+      </div>
+
+      <div class="clock-panel">
+        <div id="gameClock" class="game-clock">00:00</div>
+        <p id="periodLabel">Klar for kamp</p>
+      </div>
+
+      <div class="match-details">
+        <span id="kickoffTime">Tid ikke satt</span>
+        <span id="matchType">Kamp</span>
+        <span id="lastUpdated">Venter på oppdatering</span>
+      </div>
+    </section>
+
+    <section class="events-card">
+      <div class="events-header">
+        <div>
+          <p>Kampforløp</p>
+          <h2>Hendelser</h2>
+        </div>
+        <span id="eventCount">0</span>
+      </div>
+
+      <div id="emptyEvents" class="empty-events">
+        <span aria-hidden="true">◷</span>
+        <strong>Ingen hendelser ennå</strong>
+        <p>Nye hendelser kommer automatisk.</p>
+      </div>
+
+      <ol id="eventList" class="event-list"></ol>
+    </section>
+
+    <section id="pageMessage" class="page-message hidden" role="alert"></section>
+
+    <footer>
+      <span><i></i> Oppdateres automatisk</span>
+      <small>Du trenger ikke laste siden på nytt.</small>
+    </footer>
+  </main>
+
+  <script type="module" src="kamp-live.js?v=20260817-1"></script>
+</body>
+</html>
