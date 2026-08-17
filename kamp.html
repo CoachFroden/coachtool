@@ -103,8 +103,23 @@
       <p class="return-kicker">Kampregistrering</p>
       <h2>Klar for neste kamp</h2>
       <p class="return-text">
-        Gå tilbake til oversikten for å se kampene eller gjøre klar den neste.
+        Kontroller hendelsene og del måloversikten før du går tilbake.
       </p>
+      <section id="finalGoalShare" class="final-goal-share hidden" aria-label="Måloversikt">
+        <div class="final-goal-header">
+          <div>
+            <span>Måloversikt</span>
+            <strong id="finalGoalScore"></strong>
+          </div>
+          <span id="finalGoalCount"></span>
+        </div>
+        <div id="finalGoalList" class="final-goal-list"></div>
+        <button id="shareGoalsBtn" class="share-goals-btn" type="button">
+          <span class="share-goals-icon" aria-hidden="true">↗</span>
+          <span>Del måloversikt</span>
+        </button>
+        <p id="shareGoalsStatus" class="share-goals-status" role="status" aria-live="polite"></p>
+      </section>
       <section id="finalEventReview" class="final-event-review hidden" aria-label="Kamphendelser">
         <div class="final-event-header">
           <h3>Kamphendelser</h3>

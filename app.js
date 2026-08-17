@@ -392,6 +392,206 @@ function renderFinalEventReview() {
   review.classList.toggle("hidden", events.length === 0);
 }
 
+function getSortedGoalEvents() {
+  return (matchState.events || [])
+    .map((event, index) => ({ event, index }))
+    .filter(({ event }) =>
+      event?.type === "goal" || /⚽/.test(event?.rawText || event?.text || "")
+    )
+    .sort((a, b) => {
+      const periodDifference = getEventSortPeriod(a.event) - getEventSortPeriod(b.event);
+      if (periodDifference !== 0) return periodDifference;
+
+      const aTime = getEventMatchTimeMs(a.event);
+      const bTime = getEventMatchTimeMs(b.event);
+      if (aTime !== null && bTime !== null && aTime !== bTime) {
+        return aTime - bTime;
+      }
+      return a.index - b.index;
+    })
+    .map(entry => entry.event);
+}
+
+function getGoalMinuteLabel(event) {
+  const storedMinute = String(event?.minute || "").trim();
+  if (storedMinute) return storedMinute;
+
+  const text = String(event?.rawText || event?.text || "");
+  const match = text.match(/⚽\s*(\d{1,3}(?:\s*\+\s*\d{1,2})?)/u);
+  if (match) return match[1].replace(/\s*\+\s*/, " + ");
+
+  const timeMs = getEventMatchTimeMs(event);
+  if (timeMs === null) return "–";
+  return String(Math.max(1, Math.ceil(timeMs / 60000)));
+}
+
+function getGoalScorerName(event) {
+  if (event?.playerName) return event.playerName;
+
+  const text = getEventDisplayText(event);
+  const scorerMatch = text.match(
+    /⚽\s*\d{1,3}(?:\s*\+\s*\d{1,2})?\s*[–-]\s*(.+?)(?:\s*\([^)]*\))?$/u
+  );
+  return scorerMatch?.[1]?.trim() || "Ukjent spiller";
+}
+
+function getFinalFixture() {
+  const ourTeam = matchState.meta.ourTeam?.trim() || "Samnanger";
+  const opponent = matchState.meta.opponent?.trim() || "Motstander";
+  const isAway = matchState.meta.venue === "away" || matchState.meta.venueType === "away";
+
+  return isAway
+    ? {
+        homeTeam: opponent,
+        awayTeam: ourTeam,
+        homeScore: matchState.score.their,
+        awayScore: matchState.score.our,
+        ourTeam,
+        opponent
+      }
+    : {
+        homeTeam: ourTeam,
+        awayTeam: opponent,
+        homeScore: matchState.score.our,
+        awayScore: matchState.score.their,
+        ourTeam,
+        opponent
+      };
+}
+
+function formatShareDate(dateString) {
+  const match = String(dateString || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "";
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return new Intl.DateTimeFormat("nb-NO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+function buildGoalOverviewText() {
+  const goals = getSortedGoalEvents();
+  const fixture = getFinalFixture();
+  const date = formatShareDate(matchState.meta.date);
+  const lines = [
+    "Måloversikt",
+    `${fixture.homeTeam} – ${fixture.awayTeam} ${fixture.homeScore}–${fixture.awayScore}`
+  ];
+
+  if (date) lines.push(date);
+
+  const appendTeamGoals = (teamKey, teamName) => {
+    const teamGoals = goals.filter(event => event.team === teamKey);
+    if (teamGoals.length === 0) return;
+
+    lines.push("", `${teamName}:`);
+    teamGoals.forEach(event => {
+      lines.push(`${getGoalMinuteLabel(event)}. min – ${getGoalScorerName(event)}`);
+    });
+  };
+
+  appendTeamGoals("home", fixture.ourTeam);
+  appendTeamGoals("away", fixture.opponent);
+
+  if (goals.length === 0) {
+    lines.push("", "Ingen mål registrert.");
+  }
+
+  return lines.join("\n");
+}
+
+function renderFinalGoalShare() {
+  const panel = document.getElementById("finalGoalShare");
+  const score = document.getElementById("finalGoalScore");
+  const count = document.getElementById("finalGoalCount");
+  const list = document.getElementById("finalGoalList");
+  const status = document.getElementById("shareGoalsStatus");
+  if (!panel || !score || !count || !list || !status) return;
+
+  const fixture = getFinalFixture();
+  const goals = getSortedGoalEvents();
+
+  score.textContent =
+    `${fixture.homeTeam} ${fixture.homeScore}–${fixture.awayScore} ${fixture.awayTeam}`;
+  count.textContent = `${goals.length} ${goals.length === 1 ? "mål" : "mål"}`;
+  list.replaceChildren();
+  status.textContent = "";
+
+  if (goals.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "final-goal-empty";
+    empty.textContent = "Ingen mål er registrert i kampen.";
+    list.appendChild(empty);
+  } else {
+    goals.forEach(event => {
+      const row = document.createElement("div");
+      row.className = "final-goal-item";
+
+      const minute = document.createElement("span");
+      minute.className = "final-goal-minute";
+      minute.textContent = `${getGoalMinuteLabel(event)}′`;
+
+      const details = document.createElement("span");
+      details.className = "final-goal-details";
+
+      const scorer = document.createElement("strong");
+      scorer.textContent = getGoalScorerName(event);
+
+      const team = document.createElement("small");
+      team.textContent = event.team === "away" ? fixture.opponent : fixture.ourTeam;
+
+      details.append(scorer, team);
+      row.append(minute, details);
+      list.appendChild(row);
+    });
+  }
+
+  panel.classList.remove("hidden");
+}
+
+async function copyGoalOverview(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.select();
+  document.execCommand("copy");
+  textArea.remove();
+}
+
+document.getElementById("shareGoalsBtn")?.addEventListener("click", async () => {
+  const text = buildGoalOverviewText();
+  const status = document.getElementById("shareGoalsStatus");
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Måloversikt", text });
+      status.textContent = "Måloversikten er delt.";
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      console.warn("Kunne ikke åpne delingsmenyen:", error);
+    }
+  }
+
+  try {
+    await copyGoalOverview(text);
+    status.textContent = "Kopiert – lim inn i meldingen til laglederen.";
+  } catch (error) {
+    console.error("Kunne ikke kopiere måloversikten:", error);
+    status.textContent = "Kunne ikke kopiere. Prøv igjen.";
+  }
+});
+
 function showMatchReminder(key, message, button) {
   const now = Date.now();
   const isNewReminder = activeReminderKey !== key;
@@ -830,6 +1030,7 @@ if (
 // 👇 LEGG DETTE HER
 if (matchState.status === "ENDED") {
   showOverviewReturnMode();
+  renderFinalGoalShare();
   renderFinalEventReview();
   matchControls.style.display = "none";
   newMatchBtn.classList.add("hidden");
