@@ -1,8 +1,8 @@
-const CACHE_NAME = "samnanger-live-v1";
+const CACHE_NAME = "samnanger-live-v2";
 const APP_SHELL = [
   "./kamp-live.html?app=1",
-  "./kamp-live.css?v=20260817-2",
-  "./kamp-live.js?v=20260817-2",
+  "./kamp-live.css?v=20260817-3",
+  "./kamp-live.js?v=20260817-3",
   "./samnanger-live-manifest.json",
   "./samnanger-live-icon-180.png",
   "./samnanger-live-icon-192.png",

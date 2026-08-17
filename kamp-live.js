@@ -42,15 +42,11 @@ const elements = {
   eventCount: document.getElementById("eventCount"),
   eventList: document.getElementById("eventList"),
   emptyEvents: document.getElementById("emptyEvents"),
-  pageMessage: document.getElementById("pageMessage"),
-  installPrompt: document.getElementById("installPrompt"),
-  installAppBtn: document.getElementById("installAppBtn"),
-  installHelp: document.getElementById("installHelp")
+  pageMessage: document.getElementById("pageMessage")
 };
 
 let matchData = null;
 let clockInterval = null;
-let deferredInstallPrompt = null;
 
 function timestampToMs(value) {
   if (Number.isFinite(value)) return value;
@@ -400,59 +396,11 @@ function subscribeToFeaturedMatch() {
   );
 }
 
-function isStandaloneApp() {
-  return window.matchMedia("(display-mode: standalone)").matches ||
-    window.navigator.standalone === true;
-}
-
-function setupInstallPrompt() {
-  if (isStandaloneApp()) return;
-
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isMobile = isIos || /android/i.test(navigator.userAgent) ||
-    window.matchMedia("(max-width: 760px)").matches;
-  if (!isMobile) return;
-
-  elements.installPrompt.classList.remove("hidden");
-  if (isIos) {
-    elements.installAppBtn.textContent = "Vis hvordan";
-  }
-
-  elements.installAppBtn.addEventListener("click", async () => {
-    if (deferredInstallPrompt) {
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice;
-      deferredInstallPrompt = null;
-      elements.installPrompt.classList.add("hidden");
-      return;
-    }
-
-    elements.installHelp.textContent = isIos
-      ? "Trykk Del i Safari og velg «Legg til på Hjem-skjerm»."
-      : "Åpne nettlesermenyen og velg «Installer app» eller «Legg til på startskjermen».";
-    elements.installAppBtn.classList.add("hidden");
-  });
-}
-
-window.addEventListener("beforeinstallprompt", event => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  elements.installPrompt.classList.remove("hidden");
-  elements.installAppBtn.textContent = "Installer";
-});
-
-window.addEventListener("appinstalled", () => {
-  deferredInstallPrompt = null;
-  elements.installPrompt.classList.add("hidden");
-});
-
 if (requestedMatchId) {
   subscribeToRequestedMatch(requestedMatchId);
 } else {
   subscribeToFeaturedMatch();
 }
-
-setupInstallPrompt();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
