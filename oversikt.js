@@ -810,6 +810,7 @@ document.getElementById("saveMatchBtn").onclick = async () => {
 
   try {
 await addDoc(collection(db, "matches"), {
+  ...(currentUid ? { ownerUid: currentUid } : {}),
   meta: {
     opponent,
     venueType: venueType || null,

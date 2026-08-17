@@ -39,6 +39,7 @@ const listEl = document.getElementById("matchList");
 const statusEl = document.getElementById("status");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
+const KAMP_PAGE_VERSION = "20260817-2";
 
 function getTodayString() {
   const today = new Date();
@@ -157,7 +158,8 @@ function buildMatchCard(match) {
 
   card.querySelector(".open-match-button").addEventListener("click", () => {
     localStorage.setItem("activeMatchId", match.id);
-    window.location.href = `kamp.html?matchId=${encodeURIComponent(match.id)}`;
+    window.location.href =
+      `kamp.html?matchId=${encodeURIComponent(match.id)}&v=${KAMP_PAGE_VERSION}`;
   });
 
   return card;

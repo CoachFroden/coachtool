@@ -88,6 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
+const KAMP_PAGE_VERSION = "20260817-2";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -726,6 +727,17 @@ const loanPlayerError = document.getElementById("loanPlayerError");
 const cancelLoanBtn = document.getElementById("cancelLoanBtn");
 const confirmLoanBtn = document.getElementById("confirmLoanBtn");
 
+const loanFlowReady = Boolean(
+  loanBtn &&
+  loanModal &&
+  loanNameInput &&
+  loanReplaceSelect &&
+  loanPlayerError &&
+  cancelLoanBtn &&
+  confirmLoanBtn
+);
+
+if (loanFlowReady) {
 loanBtn.addEventListener("click", () => {
   if (!["NOT_STARTED", "UPCOMING"].includes(matchState.status)) return;
 
@@ -805,6 +817,7 @@ confirmLoanBtn.addEventListener("click", () => {
   loanModal.classList.add("hidden");
   openSquadModal();
 });
+}
 
 function populateGoalScorers(team) {
   goalScorerSelect.innerHTML = "";
@@ -877,29 +890,58 @@ async function findLiveMatch() {
   const user = auth.currentUser;
   if (!user) return null;
 
-  // 🔍 Coach-kamper (men kun dine)
-  const coachSnap = await getDocs(
-    query(
-      collection(db, "matches"),
-      where("ownerUid", "==", user.uid),
-      where("status", "in", ["LIVE", "PAUSED", "TEMP_STOPPED", "HALFTIME"])
-    )
-  );
+  const liveStatuses = ["LIVE", "PAUSED", "TEMP_STOPPED", "HALFTIME"];
 
-  if (!coachSnap.empty) {
-    return coachSnap.docs[0];
+  // 🔍 Coach-kamper (men kun dine)
+  try {
+    const coachSnap = await getDocs(
+      query(
+        collection(db, "matches"),
+        where("ownerUid", "==", user.uid),
+        where("status", "in", liveStatuses)
+      )
+    );
+
+    if (!coachSnap.empty) {
+      return coachSnap.docs[0];
+    }
+  } catch (error) {
+    // Eldre kamper mangler ownerUid, og enkelte Firebase-oppsett mangler
+    // sammensatt indeks. Reserveoppslaget nedenfor finner dem likevel.
+    console.warn("Kunne ikke søke etter eierens livekamp:", error);
   }
 
   // 🔍 Assistant-kamper (kun dine)
-  const assistantSnap = await getDocs(
-    query(
-      collection(db, "assistantMatches", user.uid, "matches"),
-      where("status", "in", ["LIVE", "PAUSED", "TEMP_STOPPED", "HALFTIME"])
-    )
-  );
+  try {
+    const assistantSnap = await getDocs(
+      query(
+        collection(db, "assistantMatches", user.uid, "matches"),
+        where("status", "in", liveStatuses)
+      )
+    );
 
-  if (!assistantSnap.empty) {
-    return assistantSnap.docs[0];
+    if (!assistantSnap.empty) {
+      return assistantSnap.docs[0];
+    }
+  } catch (error) {
+    console.warn("Kunne ikke søke etter assistentkamp:", error);
+  }
+
+  // Kamper opprettet fra oversikten før ownerUid ble lagret må også kunne
+  // gjenopprettes på mobil eller en annen nettleser.
+  try {
+    const legacyCoachSnap = await getDocs(
+      query(
+        collection(db, "matches"),
+        where("status", "in", liveStatuses)
+      )
+    );
+
+    if (!legacyCoachSnap.empty) {
+      return legacyCoachSnap.docs[0];
+    }
+  } catch (error) {
+    console.error("Kunne ikke finne pågående kamp:", error);
   }
 
   return null;
@@ -1936,6 +1978,8 @@ startBtn.addEventListener("click", async () => {
 
   await safeSetDoc(doc(db, "matches", matchState.matchId), {
     status: "LIVE",
+    ownerUid: auth.currentUser.uid,
+    role: matchState.userRole,
     startedAt: serverTimestamp(),
     timer: {
       elapsedMs: 0,
@@ -2915,11 +2959,11 @@ HOME_SQUAD.forEach(p => {
 if (squadLocked) {
   saveBtn.disabled = true;
   saveBtn.style.display = "none";
-  loanBtn.style.display = "none";
+  if (loanBtn) loanBtn.style.display = "none";
 } else {
   saveBtn.disabled = true; // styres av starter-teller
   saveBtn.style.display = "inline-block";
-  loanBtn.style.display = "block";
+  if (loanBtn) loanBtn.style.display = loanFlowReady ? "block" : "none";
 }
 
   Object.values(matchState.players.home).forEach(player => {
@@ -3486,7 +3530,8 @@ if (liveMatch) {
   // hvis du IKKE allerede er i denne kampen
   if (localStorage.getItem("activeMatchId") !== liveId) {
     localStorage.setItem("activeMatchId", liveId);
-    window.location.href = `kamp.html?matchId=${liveId}`;
+    window.location.href =
+      `kamp.html?matchId=${encodeURIComponent(liveId)}&v=${KAMP_PAGE_VERSION}`;
     return;
   }
 }
