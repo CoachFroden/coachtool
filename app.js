@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-7";
+const KAMP_PAGE_VERSION = "20260817-8";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -2051,6 +2051,7 @@ startBtn.addEventListener("click", async () => {
   readMatchMetaFromUI();
 
   setMatchStatus("LIVE");
+  matchState.liveSharingEnabled = true;
   matchState.period = 1;
   matchState.timer.startTimestamp = Date.now();
   matchState.timer.elapsedMs = 0;
@@ -2059,6 +2060,7 @@ startBtn.addEventListener("click", async () => {
     status: "LIVE",
     ownerUid: auth.currentUser.uid,
     role: matchState.userRole,
+    liveSharingEnabled: true,
     startedAt: serverTimestamp(),
     timer: {
       elapsedMs: 0,
@@ -3833,7 +3835,20 @@ async function savePublicLiveUpdate() {
   };
 
   try {
-    await setDoc(doc(db, "publicMatches", matchState.matchId), publicData, { merge: true });
+    await Promise.all([
+      setDoc(
+        doc(db, "publicMatches", matchState.matchId),
+        publicData,
+        { merge: true }
+      ),
+      setDoc(
+        doc(db, "publicMatches", "samnanger-g14-live"),
+        {
+          ...publicData,
+          sourceMatchId: matchState.matchId
+        }
+      )
+    ]);
     return true;
   } catch (error) {
     console.error("Kunne ikke oppdatere offentlig livevisning:", error);

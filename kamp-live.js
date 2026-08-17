@@ -4,10 +4,6 @@ import { initializeApp } from
 import {
   getFirestore,
   doc,
-  collection,
-  query,
-  orderBy,
-  limit,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -293,50 +289,6 @@ function showPageMessage(message) {
   elements.pageMessage.classList.remove("hidden");
 }
 
-function getTodayString() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getUpdatedAtMs(match) {
-  return timestampToMs(match.data.updatedAt) || 0;
-}
-
-function selectFeaturedMatch(matches) {
-  if (matches.length === 0) return null;
-
-  const today = getTodayString();
-  const activeStatuses = new Set(["LIVE", "TEMP_STOPPED", "HALFTIME", "PAUSED"]);
-  const activeToday = matches
-    .filter(match => {
-      const status = String(match.data.status || "").toUpperCase();
-      const date = match.data.meta?.date || "";
-      return activeStatuses.has(status) && (!date || date === today);
-    })
-    .sort((a, b) => getUpdatedAtMs(b) - getUpdatedAtMs(a));
-
-  if (activeToday.length > 0) return activeToday[0];
-
-  const upcoming = matches
-    .filter(match => {
-      const status = String(match.data.status || "").toUpperCase();
-      const date = match.data.meta?.date || "";
-      return !activeStatuses.has(status) && status !== "ENDED" && (!date || date >= today);
-    })
-    .sort((a, b) => {
-      const aKey = `${a.data.meta?.date || today} ${a.data.meta?.startTime || "99:99"}`;
-      const bKey = `${b.data.meta?.date || today} ${b.data.meta?.startTime || "99:99"}`;
-      return aKey.localeCompare(bKey);
-    });
-
-  if (upcoming.length > 0) return upcoming[0];
-
-  return [...matches].sort((a, b) => getUpdatedAtMs(b) - getUpdatedAtMs(a))[0];
-}
-
 function handleMatchSnapshot(snapshot) {
   if (!snapshot.exists()) {
     setConnectionState("is-connecting", "Venter");
@@ -363,37 +315,7 @@ function subscribeToRequestedMatch(matchId) {
 }
 
 function subscribeToFeaturedMatch() {
-  const liveFeed = query(
-    collection(db, "publicMatches"),
-    orderBy("updatedAt", "desc"),
-    limit(30)
-  );
-
-  onSnapshot(
-    liveFeed,
-    snapshot => {
-      const matches = snapshot.docs.map(matchDoc => ({
-        id: matchDoc.id,
-        data: matchDoc.data()
-      }));
-      const selectedMatch = selectFeaturedMatch(matches);
-
-      if (!selectedMatch) {
-        setConnectionState("is-connecting", "Klar");
-        showPageMessage("Ingen kamp er delt ennå. Neste kamp vises her automatisk.");
-        return;
-      }
-
-      elements.pageMessage.classList.add("hidden");
-      setConnectionState("is-live", "Tilkoblet");
-      renderMatch(selectedMatch.data);
-    },
-    error => {
-      console.error("Kunne ikke lese livekampene:", error);
-      setConnectionState("is-error", "Frakoblet");
-      showPageMessage("Kunne ikke hente kampoppdateringene. Sjekk nettet og prøv igjen.");
-    }
-  );
+  subscribeToRequestedMatch("samnanger-g14-live");
 }
 
 if (requestedMatchId) {
