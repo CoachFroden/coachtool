@@ -618,6 +618,16 @@ button:disabled {
   margin: 0;
 }
 
+/* Nettleserens åpne select-liste er lys på mobil/Windows. */
+#loanReplaceSelect {
+  color: #f8fafc;
+}
+
+#loanReplaceSelect option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
 .loan-player-error {
   min-height: 1.25rem;
   margin: 8px 2px 0;
