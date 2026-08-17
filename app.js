@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-2";
+const KAMP_PAGE_VERSION = "20260817-3";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -513,6 +513,78 @@ function buildGoalOverviewText() {
 
   return lines.join("\n");
 }
+
+let latestShareableGoalId = null;
+
+function buildSingleGoalShareText(event) {
+  const fixture = getFinalFixture();
+  const scoringTeam = event?.team === "away"
+    ? fixture.opponent
+    : fixture.ourTeam;
+
+  return [
+    "⚽ Måloppdatering",
+    `${fixture.homeTeam} ${fixture.homeScore}–${fixture.awayScore} ${fixture.awayTeam}`,
+    `${getGoalMinuteLabel(event)}. min – ${getGoalScorerName(event)} (${scoringTeam})`
+  ].join("\n");
+}
+
+function showLiveGoalShare(event) {
+  const panel = document.getElementById("liveGoalShare");
+  const summary = document.getElementById("liveGoalShareSummary");
+  const status = document.getElementById("liveGoalShareStatus");
+  if (!panel || !summary || !status || !event?.id) return;
+
+  const fixture = getFinalFixture();
+  latestShareableGoalId = event.id;
+  summary.textContent =
+    `${getGoalMinuteLabel(event)}. min · ${getGoalScorerName(event)} · ` +
+    `${fixture.homeScore}–${fixture.awayScore}`;
+  status.textContent = "";
+  panel.classList.remove("hidden");
+}
+
+function hideLiveGoalShare() {
+  latestShareableGoalId = null;
+  document.getElementById("liveGoalShare")?.classList.add("hidden");
+}
+
+document.getElementById("dismissLiveGoalShareBtn")
+  ?.addEventListener("click", hideLiveGoalShare);
+
+document.getElementById("shareLatestGoalBtn")?.addEventListener("click", async () => {
+  const status = document.getElementById("liveGoalShareStatus");
+  const event = matchState.events.find(goalEvent =>
+    goalEvent.id === latestShareableGoalId && goalEvent.type === "goal"
+  );
+
+  if (!event) {
+    if (status) status.textContent = "Fant ikke målet. Prøv måloversikten i stedet.";
+    return;
+  }
+
+  const text = buildSingleGoalShareText(event);
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Måloppdatering", text });
+      if (status) status.textContent = "Måloppdateringen er delt.";
+      setTimeout(hideLiveGoalShare, 1200);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      console.warn("Kunne ikke åpne delingsmenyen:", error);
+    }
+  }
+
+  try {
+    await copyGoalOverview(text);
+    if (status) status.textContent = "Kopiert – lim inn i Messenger.";
+  } catch (error) {
+    console.error("Kunne ikke kopiere måloppdateringen:", error);
+    if (status) status.textContent = "Kunne ikke dele. Prøv igjen.";
+  }
+});
 
 function renderFinalGoalShare() {
   const panel = document.getElementById("finalGoalShare");
@@ -982,6 +1054,7 @@ function registerGoal(team, timeMs, scorerData) {
   const minuteText = formatMatchMinute(timeMs);
   const ourTeamName = matchState.meta.ourTeam || homeTeamInput.value.trim() || "Samnanger";
   const opponentName = matchState.meta.opponent || awayTeamInput.value.trim() || "Motstander";
+  let registeredGoalEvent = null;
 
 if (team === "home") {
   addOurGoal();
@@ -989,7 +1062,7 @@ if (team === "home") {
   const player = matchState.players.home[scorerData.id];
   if (!player) return;
 
-addEvent({
+registeredGoalEvent = addEvent({
   type: "goal",
   team: "home",
   playerId: player.id,
@@ -1009,7 +1082,7 @@ addEvent({
       ? scorerData.text
       : "Ukjent spiller";
 
-addEvent({
+registeredGoalEvent = addEvent({
   type: "goal",
   team: "away",
   playerId: scorerData.id ?? null,
@@ -1023,6 +1096,8 @@ addEvent({
   }
 
   updateScoreboard();
+  if (registeredGoalEvent) showLiveGoalShare(registeredGoalEvent);
+  return registeredGoalEvent;
 }
    
  function formatTime(ms) {
