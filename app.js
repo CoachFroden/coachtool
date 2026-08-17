@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-10";
+const KAMP_PAGE_VERSION = "20260818-1";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -279,14 +279,16 @@ const periodIndicator = document.getElementById("period-indicator");
 
 const matchReminder = document.getElementById("matchReminder");
 const matchReminderText = document.getElementById("matchReminderText");
+const matchReminderActionBtn = document.getElementById("matchReminderActionBtn");
 const dismissReminderBtn = document.getElementById("dismissReminderBtn");
 const HALFTIME_REMINDER_MS = 10 * 60 * 1000;
-const REMINDER_REPEAT_MS = 60 * 1000;
+const REMINDER_REPEAT_MS = 30 * 1000;
 
 let activeReminderKey = null;
 let lastReminderAt = 0;
 let reminderAudioContext = null;
 let reminderAudioUnlocked = false;
+let reminderTargetButton = null;
 
 function getReminderAudioContext() {
   if (reminderAudioContext) return reminderAudioContext;
@@ -773,7 +775,14 @@ function showMatchReminder(key, message, button) {
   clearMatchReminder();
   activeReminderKey = key;
   lastReminderAt = now;
+  reminderTargetButton = button || null;
   matchReminderText.textContent = message;
+  matchReminderActionBtn.textContent = {
+    "match-start": "Start klokken",
+    "first-half-end": "Avslutt 1. omgang",
+    "second-half-start": "Start 2. omgang",
+    "match-end": "Avslutt kampen"
+  }[key] || "Åpne";
   matchReminder.classList.remove("hidden");
   button?.classList.add("reminder-pulse");
   document.title = `⚠️ ${message}`;
@@ -806,8 +815,9 @@ function checkMatchReminders() {
         button: startBtn
       };
     }
-  } else if (matchState.status === "LIVE" && matchState.period === 1) {
-    if (getCurrentMatchTimeMs() >= getHalfLengthMs()) {
+  } else if (matchState.status === "LIVE" && Number(matchState.period) === 1) {
+    const currentMatchTimeMs = getCurrentMatchTimeMs();
+    if (Number.isFinite(currentMatchTimeMs) && currentMatchTimeMs >= getHalfLengthMs()) {
       reminder = {
         key: "first-half-end",
         message: "Tiden er ute – avslutt 1. omgang?",
@@ -825,8 +835,9 @@ function checkMatchReminders() {
         button: resumeBtn
       };
     }
-  } else if (matchState.status === "LIVE" && matchState.period === 2) {
-    if (getCurrentMatchTimeMs() >= getHalfLengthMs() * 2) {
+  } else if (matchState.status === "LIVE" && Number(matchState.period) === 2) {
+    const currentMatchTimeMs = getCurrentMatchTimeMs();
+    if (Number.isFinite(currentMatchTimeMs) && currentMatchTimeMs >= getHalfLengthMs() * 2) {
       reminder = {
         key: "match-end",
         message: "Tiden er ute – avslutt kampen?",
@@ -844,8 +855,17 @@ function checkMatchReminders() {
   clearMatchReminder();
 }
 
+matchReminderActionBtn.addEventListener("click", () => {
+  const targetButton = reminderTargetButton;
+  clearMatchReminder();
+  targetButton?.click();
+});
 dismissReminderBtn.addEventListener("click", clearMatchReminder);
 setInterval(checkMatchReminders, 1000);
+window.addEventListener("pageshow", checkMatchReminders);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") checkMatchReminders();
+});
 
 const ourGoalBtn = document.getElementById("ourGoalBtn");
 const theirGoalBtn = document.getElementById("theirGoalBtn");
@@ -1021,10 +1041,7 @@ function startClock() {
   clockInterval = setInterval(() => {
     if (matchState.status !== "LIVE") return;
 
-    const now = Date.now();
-    const currentElapsed =
-      matchState.timer.elapsedMs +
-      (now - matchState.timer.startTimestamp);
+	const currentElapsed = getCurrentMatchTimeMs();
 	  matchState.currentElapsed = currentElapsed;
 
     const baseMs =
@@ -1110,14 +1127,13 @@ async function findLiveMatch() {
 }
    
  function getCurrentMatchTimeMs() {
-  if (matchState.status !== "LIVE") {
-    return matchState.timer.elapsedMs;
-  }
+  const elapsedMs = Math.max(0, Number(matchState.timer.elapsedMs) || 0);
+  if (matchState.status !== "LIVE") return elapsedMs;
 
-  return (
-    matchState.timer.elapsedMs +
-    (Date.now() - matchState.timer.startTimestamp)
-  );
+  const startTimestampMs = getRemoteTimestampMs(matchState.timer.startTimestamp);
+  if (!Number.isFinite(startTimestampMs)) return elapsedMs;
+
+  return elapsedMs + Math.max(0, Date.now() - startTimestampMs);
 }
 
 function updateScoreboard() {
@@ -1373,7 +1389,10 @@ function removeFromField(playerId) {
 }
 
 function getHalfLengthMs() {
-  const min = matchState.meta.halfLengthMin ?? 35;
+  const storedMinutes = Number(matchState.meta.halfLengthMin);
+  const min = Number.isFinite(storedMinutes) && storedMinutes > 0
+    ? storedMinutes
+    : 35;
   return min * 60 * 1000;
 }
 
@@ -2056,24 +2075,19 @@ function startTimerNow() {
 }
 
 function pauseTimerNow() {
-  if (!matchState.timer.startTimestamp) return;
+  const startTimestampMs = getRemoteTimestampMs(matchState.timer.startTimestamp);
+  if (!Number.isFinite(startTimestampMs)) return;
 
   const now = Date.now();
-  matchState.timer.elapsedMs += now - matchState.timer.startTimestamp;
+  matchState.timer.elapsedMs =
+    (Number(matchState.timer.elapsedMs) || 0) + Math.max(0, now - startTimestampMs);
   matchState.timer.startTimestamp = null;
 
   commitState();
 }
 
 function getLiveElapsedMs() {
-  if (matchState.status !== "LIVE") {
-    return matchState.timer.elapsedMs;
-  }
-
-  return (
-    matchState.timer.elapsedMs +
-    (Date.now() - matchState.timer.startTimestamp)
-  );
+  return getCurrentMatchTimeMs();
 }
 
 function setMatchStatus(status) {
@@ -4139,6 +4153,14 @@ setInterval(() => {
 function getRemoteTimestampMs(value) {
   if (Number.isFinite(value)) return value;
   if (typeof value?.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  if (Number.isFinite(value?.seconds)) {
+    return value.seconds * 1000 + Math.floor((Number(value.nanoseconds) || 0) / 1000000);
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
   return null;
 }
 
@@ -4472,7 +4494,7 @@ awayTeamInput.value =
 
 matchState.lineupConfirmed = data.lineupConfirmed ?? shouldApplyDefaultLineup;
 matchState.liveSharingEnabled = data.liveSharingEnabled === true;
-matchState.halftimeStartedAt = data.halftimeStartedAt || null;
+matchState.halftimeStartedAt = getRemoteTimestampMs(data.halftimeStartedAt);
 matchState.firstHalfActualEndMs = Number.isFinite(data.firstHalfActualEndMs)
   ? data.firstHalfActualEndMs
   : null;
@@ -4486,9 +4508,9 @@ if (
 }
 
 // Les status og lagret kamptid før spillerintervallene gjenopprettes.
-matchState.period = data.period || 1;
+matchState.period = Number(data.period) === 2 ? 2 : 1;
 matchState.status = data.status || "NOT_STARTED";
-matchState.timer.elapsedMs = data.timer?.elapsedMs || 0;
+matchState.timer.elapsedMs = Math.max(0, Number(data.timer?.elapsedMs) || 0);
 
   /* =========================
      PLAYERS (KJERNE)
@@ -4700,7 +4722,10 @@ if (["LIVE", "TEMP_STOPPED"].includes(matchState.status)) {
 if (matchState.status === "LIVE") {
 
 if (data.timer?.startTimestamp) {
-  matchState.timer.startTimestamp = data.timer.startTimestamp;
+  const restoredStartTimestamp = getRemoteTimestampMs(data.timer.startTimestamp);
+  matchState.timer.startTimestamp = Number.isFinite(restoredStartTimestamp)
+    ? restoredStartTimestamp
+    : Date.now();
 } else {
   console.warn("Mangler startTimestamp – bruker nåtid (fallback)");
   matchState.timer.startTimestamp = Date.now();
@@ -4712,11 +4737,7 @@ if (data.timer?.startTimestamp) {
   } else {
     periodIndicator.textContent = "2. omgang";
   }
-const now = Date.now();
-
-const currentElapsed =
-  matchState.timer.elapsedMs +
-  (now - matchState.timer.startTimestamp);
+const currentElapsed = getCurrentMatchTimeMs();
 
 const baseMs =
   matchState.period === 1

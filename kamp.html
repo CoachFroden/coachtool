@@ -19,16 +19,22 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="styles.css?v=20260817-10" />
+<link rel="stylesheet" href="styles.css?v=20260818-1" />
 </head>
 <body>
 <button id="backBtn" class="back-btn">←</button>
 
 <div id="app">
 
-  <div id="matchReminder" class="match-reminder hidden" role="status" aria-live="assertive">
-    <span id="matchReminderText"></span>
-    <button id="dismissReminderBtn" type="button">Skjul</button>
+  <div id="matchReminder" class="match-reminder hidden" role="alert" aria-live="assertive">
+    <div class="match-reminder-message">
+      <span class="match-reminder-icon" aria-hidden="true">⏰</span>
+      <span id="matchReminderText"></span>
+    </div>
+    <div class="match-reminder-actions">
+      <button id="matchReminderActionBtn" type="button">Åpne</button>
+      <button id="dismissReminderBtn" type="button">Senere</button>
+    </div>
   </div>
 
   <div id="saveStatus" class="save-status hidden" role="status" aria-live="polite"></div>
@@ -538,7 +544,7 @@
   </div>
 </div>
 
- <script type="module" src="app.js?v=20260817-10"></script>
+ <script type="module" src="app.js?v=20260818-1"></script>
 
 </body>
 </html>

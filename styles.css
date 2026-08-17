@@ -369,27 +369,64 @@ button:disabled {
    ====================================================== */
 
 .match-reminder {
-  position: sticky;
-  top: 8px;
-  z-index: 9000;
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 10000;
+  display: flex;
+  width: min(430px, calc(100vw - 24px));
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid rgba(250, 204, 21, 0.7);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #422006, #713f12);
+  color: #fff7d6;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(250, 204, 21, 0.1);
+  font-weight: 800;
+  transform: translateX(-50%);
+  animation: reminderArrive 0.25s ease-out;
+}
+
+.match-reminder-message {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 8px 48px 12px;
-  padding: 12px 14px;
-  border: 1px solid rgba(250, 204, 21, 0.55);
-  border-radius: 12px;
-  background: #422006;
-  color: #fef3c7;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  font-weight: 700;
+  gap: 10px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.match-reminder-icon {
+  font-size: 1.35rem;
+}
+
+.match-reminder-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
 }
 
 .match-reminder button {
-  flex: 0 0 auto;
-  padding: 7px 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.1);
+  color: #fff7d6;
+  font-weight: 800;
+}
+
+#matchReminderActionBtn {
+  border-color: #facc15;
+  background: #facc15;
+  color: #1c1917;
+}
+
+@keyframes reminderArrive {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.98);
+  }
 }
 
 .reminder-pulse {
@@ -407,8 +444,7 @@ button:disabled {
 
 @media (max-width: 480px) {
   .match-reminder {
-    margin: 8px 12px 10px 48px;
-    font-size: 0.9rem;
+    top: max(8px, env(safe-area-inset-top));
   }
 }
 
