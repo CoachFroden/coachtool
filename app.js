@@ -39,6 +39,9 @@ const db = getFirestore();
 
 const saveStatusElement = document.getElementById("saveStatus");
 let saveStatusVersion = 0;
+let activeMatchDocumentRef = null;
+let unsubscribeActiveMatch = null;
+let lastAppliedRemoteUpdateMs = 0;
 
 function beginSaveStatus() {
   const version = ++saveStatusVersion;
@@ -102,6 +105,12 @@ function getMatchRef() {
 
   if (!matchState.matchId) {
     throw new Error("❌ getMatchRef: matchId mangler");
+  }
+
+  // Bruk dokumentet kampen faktisk ble lastet fra. Dette er særlig viktig
+  // når en assistent åpner en kamp som ligger i trenerens matches-samling.
+  if (activeMatchDocumentRef?.id === matchState.matchId) {
+    return activeMatchDocumentRef;
   }
 
   if (matchState.userRole === "coach") {
@@ -3763,6 +3772,176 @@ setInterval(() => {
   }
 }, 3 * 60 * 1000);
 
+function getRemoteTimestampMs(value) {
+  if (Number.isFinite(value)) return value;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  return null;
+}
+
+function copyRemotePlayers(players) {
+  if (!players || typeof players !== "object" || Array.isArray(players)) return null;
+
+  return Object.fromEntries(
+    Object.entries(players).map(([id, player]) => [
+      id,
+      {
+        ...player,
+        id: player?.id || id,
+        name: player?.name || "Ukjent",
+        present: player?.present === true,
+        starter: player?.starter === true,
+        intervals: Array.isArray(player?.intervals)
+          ? player.intervals.map(interval => ({ ...interval }))
+          : [],
+        cards: Array.isArray(player?.cards)
+          ? player.cards.map(card => ({ ...card }))
+          : []
+      }
+    ])
+  );
+}
+
+function applyRemoteLineupFallback(data) {
+  if (
+    !Array.isArray(data.lineup) ||
+    data.lineupConfirmed ||
+    data.players
+  ) {
+    return;
+  }
+
+  const lineupNames = new Set(
+    data.lineup.map(player => getLineupPlayerKey(player?.name))
+  );
+
+  Object.values(matchState.players.home).forEach(player => {
+    player.starter = lineupNames.has(getLineupPlayerKey(player.name));
+    if (player.starter) player.present = true;
+  });
+
+  matchState.squad.onField.home = Object.values(matchState.players.home)
+    .filter(player => player.starter)
+    .map(player => player.id);
+}
+
+function updateClockAfterRemoteSync() {
+  stopClock();
+
+  if (matchState.status === "LIVE") {
+    if (!Number.isFinite(matchState.timer.startTimestamp)) {
+      matchState.timer.startTimestamp = Date.now();
+    }
+    periodIndicator.textContent = `${matchState.period}. omgang`;
+    startClock();
+    return;
+  }
+
+  document.getElementById("game-clock").textContent =
+    formatTime(matchState.timer.elapsedMs);
+
+  if (matchState.status === "TEMP_STOPPED") {
+    periodIndicator.textContent = `${matchState.period}. omgang – klokken stoppet`;
+  } else if (["HALFTIME", "PAUSED"].includes(matchState.status)) {
+    periodIndicator.textContent = "Pause mellom omgangene";
+  } else if (matchState.status === "ENDED") {
+    periodIndicator.textContent = "Kamp ferdig";
+  }
+}
+
+function applyRemoteMatchData(data) {
+  if (!data || !matchState.matchId) return;
+
+  if (data.meta && typeof data.meta === "object") {
+    matchState.meta = { ...matchState.meta, ...data.meta };
+    matchState.meta.venue =
+      data.meta.venue || data.meta.venueType || matchState.meta.venue || "home";
+  }
+
+  if (data.score && typeof data.score === "object") {
+    matchState.score = {
+      our: Number(data.score.our) || 0,
+      their: Number(data.score.their) || 0
+    };
+  }
+
+  if (Array.isArray(data.events)) {
+    matchState.events = data.events.map(event => ({ ...event }));
+  }
+
+  if (Number.isFinite(data.period)) {
+    matchState.period = data.period;
+  }
+
+  if (typeof data.status === "string") {
+    matchState.status = data.status;
+  }
+
+  if (data.timer && typeof data.timer === "object") {
+    matchState.timer.elapsedMs = Number(data.timer.elapsedMs) || 0;
+    matchState.timer.startTimestamp = getRemoteTimestampMs(data.timer.startTimestamp);
+  }
+
+  const remotePlayers = copyRemotePlayers(data.players);
+  if (remotePlayers) {
+    matchState.players.home = remotePlayers;
+  }
+
+  if (Array.isArray(data.onField)) {
+    matchState.squad.onField.home = data.onField.filter(
+      id => matchState.players.home[id]?.present === true
+    );
+  } else if (Array.isArray(data.squad?.starters)) {
+    matchState.squad.onField.home = data.squad.starters
+      .map(player => player?.id)
+      .filter(id => matchState.players.home[id]?.present === true);
+  }
+
+  if (typeof data.lineupConfirmed === "boolean") {
+    matchState.lineupConfirmed = data.lineupConfirmed;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "halftimeStartedAt")) {
+    matchState.halftimeStartedAt = getRemoteTimestampMs(data.halftimeStartedAt);
+  }
+  if (Object.prototype.hasOwnProperty.call(data, "firstHalfActualEndMs")) {
+    matchState.firstHalfActualEndMs = Number.isFinite(data.firstHalfActualEndMs)
+      ? data.firstHalfActualEndMs
+      : null;
+  }
+
+  applyRemoteLineupFallback(data);
+  sanitizePlayers();
+  updateClockAfterRemoteSync();
+  syncUI();
+  populateGoalScorers("home");
+
+  if (isSquadModalOpen) {
+    openSquadModal();
+  }
+}
+
+function subscribeToActiveMatch(matchRef) {
+  unsubscribeActiveMatch?.();
+  unsubscribeActiveMatch = onSnapshot(
+    matchRef,
+    snapshot => {
+      if (!snapshot.exists() || snapshot.metadata.hasPendingWrites) return;
+
+      const data = snapshot.data();
+      const remoteUpdatedAt = getRemoteTimestampMs(data.updatedAt);
+      if (remoteUpdatedAt && remoteUpdatedAt < lastAppliedRemoteUpdateMs) return;
+      if (remoteUpdatedAt) lastAppliedRemoteUpdateMs = remoteUpdatedAt;
+
+      applyRemoteMatchData(data);
+      saveStatusElement.textContent = "✓ Synkronisert";
+      saveStatusElement.className = "save-status saved";
+    },
+    error => {
+      console.error("Sanntidssynkronisering feilet:", error);
+    }
+  );
+}
+
 async function loadActiveMatch() {
   const matchId = localStorage.getItem("activeMatchId");
   if (!matchId) return;
@@ -3792,6 +3971,7 @@ async function loadActiveMatch() {
     return;
   }
 
+  activeMatchDocumentRef = matchRef;
   const data = snap.data();
 
   if (data.status === "ENDED") {
@@ -4222,55 +4402,7 @@ setTimeout(() => {
   updatePlayingTimeUI();
 }, 0);
 
-// 🔥 LEGG INN HER
-const coachRef = doc(db, "matches", matchState.matchId);
-
-onSnapshot(coachRef, (snap) => {
-  console.log("SNAPSHOT TRIGGERED");
-
-  if (!snap.exists()) return;
-
-  const data = snap.data();
-
-  if (!data.lineup) return;
-
-// 🔥 VIKTIG: ikke overskriv hvis vi allerede har lagret starters
-if (data.lineupConfirmed) return;
-
-  const newOnField = [];
-
-  data.lineup.forEach(p => {
-    const firstName = p.name.split(" ")[0];
-    const squadPlayer = HOME_SQUAD.find(s => s.name === firstName);
-    if (!squadPlayer) return;
-
-    newOnField.push(squadPlayer.id);
-  });
-
-// nullstill alle
-Object.values(matchState.players.home).forEach(p => {
-  p.starter = false;
-});
-
-// sett nye startere fra lineup
-data.lineup.forEach(p => {
-  const firstName = p.name.split(" ")[0].trim().toLowerCase();
-  const squadPlayer = HOME_SQUAD.find(
-  s => s.name.trim().toLowerCase() === firstName
-);
-  if (!squadPlayer) return;
-
-  if (matchState.players.home[squadPlayer.id]) {
-    matchState.players.home[squadPlayer.id].starter = true;
-  }
-});
-
-// 🔥 oppdater UI
-updatePlayingTimeUI();
-if (isSquadModalOpen) {
-  openSquadModal();
-}
-});
+subscribeToActiveMatch(matchRef);
 
 document.addEventListener("DOMContentLoaded", () => {
 
