@@ -9,6 +9,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  arrayUnion,
   serverTimestamp,
   query,
   where,
@@ -23,6 +24,12 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+import {
+  getMessaging,
+  getToken,
+  isSupported as isMessagingSupported
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAKZMu2HZPmmoZ1fFT7DNA9Q6ystbKEPgE",
   authDomain: "samnanger-g14-f10a1.firebaseapp.com",
@@ -32,7 +39,7 @@ const firebaseConfig = {
   appId: "1:926427862844:web:eeb814a349e9bfd701b039"
 };
 
-initializeApp(firebaseConfig);
+const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth();
 
 const db = getFirestore();
@@ -88,7 +95,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260818-1";
+const KAMP_PAGE_VERSION = "20260818-4";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -281,8 +288,12 @@ const matchReminder = document.getElementById("matchReminder");
 const matchReminderText = document.getElementById("matchReminderText");
 const matchReminderActionBtn = document.getElementById("matchReminderActionBtn");
 const dismissReminderBtn = document.getElementById("dismissReminderBtn");
+const enableReminderSoundBtn = document.getElementById("enableReminderSoundBtn");
+const enableMatchPushDuringBtn = document.getElementById("enableMatchPushDuringBtn");
+const reminderNotificationStatus = document.getElementById("reminderNotificationStatus");
 const HALFTIME_REMINDER_MS = 10 * 60 * 1000;
 const REMINDER_REPEAT_MS = 30 * 1000;
+const MATCH_PUSH_VAPID_KEY = "BMliWkFTxc-mlxFygGosVuvYirsguGa-lpUiYUhWwpkmwkP_bJXFZRtpUetZ3NSa4YY7sig2ikaVoTTtlTg0x8o";
 
 let activeReminderKey = null;
 let lastReminderAt = 0;
@@ -357,18 +368,190 @@ function playReminderTone(reminderKey) {
 document.addEventListener("pointerdown", unlockReminderAudio, { capture: true });
 document.addEventListener("keydown", unlockReminderAudio, { capture: true });
 
-document.getElementById("enableReminderSoundBtn")?.addEventListener("click", async event => {
-  const button = event.currentTarget;
-  const enabled = await unlockReminderAudio();
+function setMatchPushButtonState(state, statusText = "") {
+  const states = {
+    idle: {
+      icon: "🔔",
+      title: "Aktiver kampvarsler",
+      detail: "Lyd + låseskjerm"
+    },
+    loading: {
+      icon: "◌",
+      title: "Aktiverer …",
+      detail: "Kobler til mobilen"
+    },
+    active: {
+      icon: "✓",
+      title: "Kampvarsler er på",
+      detail: "Også på låseskjermen"
+    },
+    foreground: {
+      icon: "🔊",
+      title: "Lydvarsel er på",
+      detail: "Legg appen på Hjem-skjermen for push"
+    },
+    error: {
+      icon: "!",
+      title: "Varsler er blokkert",
+      detail: "Åpne Varslinger i iPhone-innstillinger"
+    }
+  };
+  const content = states[state] || states.idle;
 
-  if (enabled) {
-    button.classList.add("is-active");
-    button.innerHTML = '<span aria-hidden="true">✓</span> Lydvarsler på';
-    playReminderTone("match-start");
-  } else {
-    button.textContent = "Kunne ikke aktivere lyd";
+  if (enableReminderSoundBtn) {
+    enableReminderSoundBtn.classList.toggle("is-active", state === "active");
+    enableReminderSoundBtn.classList.toggle("is-loading", state === "loading");
+    enableReminderSoundBtn.classList.toggle("is-error", state === "error");
+    enableReminderSoundBtn.disabled = state === "loading";
+    enableReminderSoundBtn.innerHTML = `
+      <span class="match-alert-orb" aria-hidden="true">${content.icon}</span>
+      <span class="match-alert-copy">
+        <strong>${content.title}</strong>
+        <small>${content.detail}</small>
+      </span>
+    `;
   }
+
+  if (enableMatchPushDuringBtn) {
+    enableMatchPushDuringBtn.classList.toggle("is-active", state === "active");
+    enableMatchPushDuringBtn.classList.toggle("is-error", state === "error");
+    enableMatchPushDuringBtn.disabled = state === "loading";
+    enableMatchPushDuringBtn.textContent = state === "active"
+      ? "✓ Låseskjermvarsler er på"
+      : state === "loading"
+        ? "Aktiverer varsler …"
+        : state === "error"
+          ? "! Varsler er blokkert"
+          : "🔔 Aktiver låseskjermvarsler";
+  }
+
+  if (reminderNotificationStatus) {
+    reminderNotificationStatus.textContent = statusText;
+    reminderNotificationStatus.classList.toggle("is-error", state === "error");
+  }
+}
+
+function isIosDevice() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function isRunningAsInstalledApp() {
+  return window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+}
+
+async function enableMatchPushNotifications({ showReadyNotification = false } = {}) {
+  const audioEnabled = await unlockReminderAudio();
+  if (audioEnabled) playReminderTone("match-start");
+
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    setMatchPushButtonState(
+      "foreground",
+      isIosDevice()
+        ? "Åpne siden fra ikonet på Hjem-skjermen for å få låseskjermvarsler."
+        : "Denne nettleseren støtter ikke låseskjermvarsler."
+    );
+    return false;
+  }
+
+  if (isIosDevice() && !isRunningAsInstalledApp()) {
+    setMatchPushButtonState(
+      "foreground",
+      "Del → Legg til på Hjem-skjermen, og aktiver varsler derfra."
+    );
+    return false;
+  }
+
+  setMatchPushButtonState("loading", "Ber iPhone om tillatelse …");
+
+  try {
+    const supported = await isMessagingSupported();
+    if (!supported) {
+      setMatchPushButtonState(
+        "foreground",
+        "Lyd virker mens kampen er åpen, men push støttes ikke her."
+      );
+      return false;
+    }
+
+    let permission = Notification.permission;
+    if (permission === "default") {
+      permission = await Notification.requestPermission();
+    }
+
+    if (permission !== "granted") {
+      setMatchPushButtonState(
+        "error",
+        permission === "denied"
+          ? "Varsler er avslått. Tillat dem under Innstillinger → Varslinger."
+          : "Du må tillate varsler for å få beskjed når telefonen er låst."
+      );
+      return false;
+    }
+
+    const user = auth.currentUser;
+    if (!user) throw new Error("Du må være logget inn for å aktivere kampvarsler.");
+
+    const serviceWorkerRegistration = await navigator.serviceWorker.register(
+      "./firebase-messaging-sw.js"
+    );
+    await serviceWorkerRegistration.update().catch(() => {});
+
+    const messaging = getMessaging(firebaseApp);
+    const token = await getToken(messaging, {
+      vapidKey: MATCH_PUSH_VAPID_KEY,
+      serviceWorkerRegistration
+    });
+
+    if (!token) throw new Error("Mobilen ga ikke fra seg et varslingstoken.");
+
+    await setDoc(doc(db, "adminTokens", user.uid), {
+      token,
+      tokens: arrayUnion(token),
+      platform: isIosDevice() ? "ios-web-app" : "web",
+      matchRemindersEnabled: true,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    localStorage.setItem("matchPushNotificationsEnabled", "true");
+    setMatchPushButtonState("active", "Pause og kampslutt varsles automatisk.");
+
+    if (showReadyNotification) {
+      await serviceWorkerRegistration.showNotification("⚽ Kampvarsler er klare", {
+        body: "Du får nå beskjed ved pause og kampslutt – også når iPhone er låst.",
+        icon: "./icon-192.png",
+        badge: "./favicon-32.png",
+        tag: "match-push-ready",
+        data: {
+          url: window.location.href
+        }
+      });
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Kunne ikke aktivere kampvarsler:", error);
+    setMatchPushButtonState(
+      "error",
+      error?.message || "Kunne ikke koble til varslingstjenesten."
+    );
+    return false;
+  }
+}
+
+enableReminderSoundBtn?.addEventListener("click", () => {
+  enableMatchPushNotifications({ showReadyNotification: true });
 });
+
+enableMatchPushDuringBtn?.addEventListener("click", () => {
+  enableMatchPushNotifications({ showReadyNotification: true });
+});
+
+setMatchPushButtonState(
+  typeof Notification !== "undefined" && Notification.permission === "granted"
+    ? "active"
+    : "idle"
+);
 
 function clearMatchReminder() {
   matchReminder.classList.add("hidden");
@@ -2156,14 +2339,20 @@ startBtn.addEventListener("click", async () => {
 
   await safeSetDoc(doc(db, "matches", matchState.matchId), {
     status: "LIVE",
+    period: 1,
     ownerUid: auth.currentUser.uid,
     role: matchState.userRole,
     liveSharingEnabled: true,
+    meta: {
+      ...matchState.meta,
+      halfLengthMin: Number(matchState.meta.halfLengthMin) || 35
+    },
     startedAt: serverTimestamp(),
     timer: {
       elapsedMs: 0,
       startTimestamp: Date.now()
     },
+    pushReminders: {},
     updatedAt: serverTimestamp()
   }, { merge: true });
 
@@ -3699,6 +3888,15 @@ if (data.role !== "coach" && !user.emailVerified) {
 
 // ✅ Godkjent – gjør ingenting
 matchState.userRole = data.role;
+
+// Forny varslingstokenet stille når tillatelsen allerede er gitt. Dette er
+// viktig på iPhone fordi tokenet kan endres etter en systemoppdatering.
+if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+  enableMatchPushNotifications().catch(error => {
+    console.warn("Kunne ikke fornye kampvarslingstoken:", error);
+  });
+}
+
 await loadActiveMatch();
 
 const liveMatch = await findLiveMatch();
@@ -3975,6 +4173,10 @@ try {
   const saveVersion = beginSaveStatus();
 
   const data = {
+    meta: {
+      ...matchState.meta,
+      halfLengthMin: Number(matchState.meta.halfLengthMin) || 35
+    },
     score: matchState.score,
     events: matchState.events,
     period: matchState.period,

@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="styles.css?v=20260818-1" />
+<link rel="stylesheet" href="styles.css?v=20260818-4" />
 </head>
 <body>
 <button id="backBtn" class="back-btn">←</button>
@@ -99,14 +99,18 @@
   <div class="live-share-setup">
     <div class="live-share-actions">
       <button id="enableReminderSoundBtn" type="button">
-        <span aria-hidden="true">🔔</span>
-        Aktiver lyd
+        <span class="match-alert-orb" aria-hidden="true">🔔</span>
+        <span class="match-alert-copy">
+          <strong>Aktiver kampvarsler</strong>
+          <small>Lyd + låseskjerm</small>
+        </span>
       </button>
       <button id="shareLiveMatchBtn" type="button">
         <span aria-hidden="true">●</span>
         Del livevisning
       </button>
     </div>
+    <p id="reminderNotificationStatus" class="reminder-notification-status" role="status" aria-live="polite"></p>
     <p id="shareLiveMatchStatus" role="status" aria-live="polite"></p>
   </div>
 
@@ -229,6 +233,7 @@
 
   <details class="more-actions">
     <summary>••• Flere</summary>
+    <button id="enableMatchPushDuringBtn" type="button">🔔 Aktiver låseskjermvarsler</button>
     <button id="shareLiveMatchDuringBtn" type="button">Del livevisning</button>
     <button id="adjustStartBtn" type="button">Korriger kampklokke</button>
   </details>
@@ -544,7 +549,7 @@
   </div>
 </div>
 
- <script type="module" src="app.js?v=20260818-1"></script>
+ <script type="module" src="app.js?v=20260818-4"></script>
 
 </body>
 </html>

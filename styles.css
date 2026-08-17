@@ -810,6 +810,55 @@ button {
   font-weight: 800;
 }
 
+#enableReminderSoundBtn {
+  min-width: 0;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+#enableReminderSoundBtn:active {
+  transform: scale(0.98);
+}
+
+.match-alert-orb {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  place-items: center;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.13);
+  font-size: 0.85rem;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.05);
+}
+
+.match-alert-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.match-alert-copy strong,
+.match-alert-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-alert-copy strong {
+  font-size: 0.72rem;
+}
+
+.match-alert-copy small {
+  color: #7f9aba;
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
 #shareLiveMatchBtn span {
   color: #22c55e;
   font-size: 0.6rem;
@@ -825,6 +874,50 @@ button {
   border-color: rgba(74, 222, 128, 0.24);
   color: #86efac;
   background: rgba(22, 163, 74, 0.08);
+}
+
+#enableReminderSoundBtn.is-active .match-alert-orb {
+  border-color: rgba(74, 222, 128, 0.5);
+  background: rgba(22, 163, 74, 0.18);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.07), 0 0 18px rgba(34, 197, 94, 0.15);
+}
+
+#enableReminderSoundBtn.is-active .match-alert-copy small {
+  color: #86efac;
+}
+
+#enableReminderSoundBtn.is-loading .match-alert-orb {
+  animation: notificationOrbPulse 0.9s ease-in-out infinite alternate;
+}
+
+#enableReminderSoundBtn.is-error {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+  background: rgba(153, 27, 27, 0.1);
+}
+
+@keyframes notificationOrbPulse {
+  to {
+    transform: scale(1.1);
+    box-shadow: 0 0 18px rgba(96, 165, 250, 0.35);
+  }
+}
+
+.reminder-notification-status {
+  min-height: 0;
+  margin: 7px 2px 0;
+  color: #86efac;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.reminder-notification-status:empty {
+  display: none;
+}
+
+.reminder-notification-status.is-error {
+  color: #fca5a5;
 }
 
 #shareLiveMatchStatus {
@@ -3110,6 +3203,7 @@ section {
 }
 
 .more-actions #adjustStartBtn,
+.more-actions #enableMatchPushDuringBtn,
 .more-actions #shareLiveMatchDuringBtn {
   width: 100%;
   margin: 0 0 8px;
@@ -3120,6 +3214,21 @@ section {
 
 .more-actions #shareLiveMatchDuringBtn {
   color: #86efac;
+}
+
+.more-actions #enableMatchPushDuringBtn {
+  color: #bfdbfe;
+}
+
+.more-actions #enableMatchPushDuringBtn.is-active {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(22, 163, 74, 0.09);
+  color: #86efac;
+}
+
+.more-actions #enableMatchPushDuringBtn.is-error {
+  border-color: rgba(248, 113, 113, 0.28);
+  color: #fca5a5;
 }
 
 .save-status {
