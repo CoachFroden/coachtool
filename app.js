@@ -30,6 +30,11 @@ import {
   isSupported as isMessagingSupported
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
+import {
+  getFunctions,
+  httpsCallable
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAKZMu2HZPmmoZ1fFT7DNA9Q6ystbKEPgE",
   authDomain: "samnanger-g14-f10a1.firebaseapp.com",
@@ -43,6 +48,8 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth();
 
 const db = getFirestore();
+const cloudFunctions = getFunctions(firebaseApp, "europe-west1");
+const sendMatchPushTest = httpsCallable(cloudFunctions, "testMatchPushNotification");
 
 const saveStatusElement = document.getElementById("saveStatus");
 let saveStatusVersion = 0;
@@ -95,7 +102,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260818-4";
+const KAMP_PAGE_VERSION = "20260818-5";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -294,6 +301,7 @@ const reminderNotificationStatus = document.getElementById("reminderNotification
 const HALFTIME_REMINDER_MS = 10 * 60 * 1000;
 const REMINDER_REPEAT_MS = 30 * 1000;
 const MATCH_PUSH_VAPID_KEY = "BMliWkFTxc-mlxFygGosVuvYirsguGa-lpUiYUhWwpkmwkP_bJXFZRtpUetZ3NSa4YY7sig2ikaVoTTtlTg0x8o";
+const MATCH_PUSH_SW_VERSION = "20260818-5";
 
 let activeReminderKey = null;
 let lastReminderAt = 0;
@@ -493,7 +501,8 @@ async function enableMatchPushNotifications({ showReadyNotification = false } = 
     if (!user) throw new Error("Du må være logget inn for å aktivere kampvarsler.");
 
     const serviceWorkerRegistration = await navigator.serviceWorker.register(
-      "./firebase-messaging-sw.js"
+      `./firebase-messaging-sw.js?v=${MATCH_PUSH_SW_VERSION}`,
+      { updateViaCache: "none" }
     );
     await serviceWorkerRegistration.update().catch(() => {});
 
@@ -517,15 +526,28 @@ async function enableMatchPushNotifications({ showReadyNotification = false } = 
     setMatchPushButtonState("active", "Pause og kampslutt varsles automatisk.");
 
     if (showReadyNotification) {
-      await serviceWorkerRegistration.showNotification("⚽ Kampvarsler er klare", {
-        body: "Du får nå beskjed ved pause og kampslutt – også når iPhone er låst.",
-        icon: "./icon-192.png",
-        badge: "./favicon-32.png",
-        tag: "match-push-ready",
-        data: {
-          url: window.location.href
-        }
-      });
+      setMatchPushButtonState(
+        "active",
+        "Lås telefonen nå – et ekte testvarsel kommer om 8 sekunder."
+      );
+
+      sendMatchPushTest({ token, delaySeconds: 8 })
+        .then(result => {
+          const delivered = Number(result?.data?.successCount) || 0;
+          setMatchPushButtonState(
+            "active",
+            delivered > 0
+              ? "Testvarsel sendt. Pause og kampslutt varsles automatisk."
+              : "Varsler er aktivert, men testen kunne ikke leveres."
+          );
+        })
+        .catch(error => {
+          console.error("Kunne ikke sende testvarsel:", error);
+          setMatchPushButtonState(
+            "error",
+            "Telefonen ble registrert, men testvarslet feilet. Trykk for å prøve igjen."
+          );
+        });
     }
 
     return true;
@@ -548,7 +570,9 @@ enableMatchPushDuringBtn?.addEventListener("click", () => {
 });
 
 setMatchPushButtonState(
-  typeof Notification !== "undefined" && Notification.permission === "granted"
+  typeof Notification !== "undefined" &&
+    Notification.permission === "granted" &&
+    localStorage.getItem("matchPushNotificationsEnabled") === "true"
     ? "active"
     : "idle"
 );

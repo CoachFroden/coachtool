@@ -1,4 +1,4 @@
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { setGlobalOptions } = require("firebase-functions/v2");
@@ -179,6 +179,85 @@ async function getMatchReminderTokens(ownerUid) {
     .slice(0, 500);
 }
 
+function buildMatchPushMessage(tokens, reminder) {
+  return {
+    tokens,
+    data: {
+      title: reminder.title,
+      body: reminder.body,
+      url: reminder.url,
+      matchId: reminder.matchId || "match",
+      reminderKey: reminder.key
+    },
+    // Et eksplisitt Web Push-varsel gjør leveringen mer robust på iPhone når
+    // hjemskjermappen er lukket og skjermen er låst. Service workeren bruker
+    // de samme datafeltene for ikon, klikk og riktig kamplenke.
+    webpush: {
+      headers: {
+        Urgency: "high",
+        TTL: "300"
+      },
+      notification: {
+        title: reminder.title,
+        body: reminder.body,
+        tag: `samnanger-${reminder.matchId || "match"}-${reminder.key}`,
+        renotify: true,
+        requireInteraction: true,
+        vibrate: [280, 120, 280, 120, 520]
+      }
+    }
+  };
+}
+
+exports.testMatchPushNotification = onCall({
+  region: "europe-west1",
+  timeoutSeconds: 30
+}, async request => {
+  if (!request.auth?.uid) {
+    throw new HttpsError("unauthenticated", "Du må være logget inn.");
+  }
+
+  const token = String(request.data?.token || "");
+  const delaySeconds = Math.min(15, Math.max(3, Number(request.data?.delaySeconds) || 8));
+  if (token.length < 20) {
+    throw new HttpsError("invalid-argument", "Varslingstoken mangler.");
+  }
+
+  const tokenSnapshot = await db.collection("adminTokens").doc(request.auth.uid).get();
+  const tokenData = tokenSnapshot.data() || {};
+  const registeredTokens = new Set([
+    tokenData.token,
+    ...(Array.isArray(tokenData.tokens) ? tokenData.tokens : [])
+  ].filter(Boolean));
+
+  if (!tokenSnapshot.exists || !registeredTokens.has(token)) {
+    throw new HttpsError("permission-denied", "Denne enheten er ikke registrert for kampvarsler.");
+  }
+
+  await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+
+  const response = await admin.messaging().sendEachForMulticast(
+    buildMatchPushMessage([token], {
+      key: "deviceTest",
+      title: "🔔 Kampvarsler virker",
+      body: "iPhone er koblet til. Du får beskjed ved pause og kampslutt.",
+      url: "./dagens-kamp.html?from=notification-test",
+      matchId: "device-test"
+    })
+  );
+
+  if (response.successCount === 0) {
+    const message = response.responses[0]?.error?.message || "Firebase avviste testvarslet.";
+    throw new HttpsError("failed-precondition", message);
+  }
+
+  console.log(`Testvarsel sendt til enheten for ${request.auth.uid}.`);
+  return {
+    successCount: response.successCount,
+    failureCount: response.failureCount
+  };
+});
+
 async function claimMatchReminder(matchRef, reminderKey, nowMs) {
   return db.runTransaction(async transaction => {
     const snapshot = await transaction.get(matchRef);
@@ -232,22 +311,12 @@ async function processMatchClockReminder(matchSnapshot, schedulerStartedAtMs) {
   if (!claimed) return;
 
   try {
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens,
-      data: {
-        title: reminder.title,
-        body: reminder.body,
-        url: reminder.url,
-        matchId: freshSnapshot.id,
-        reminderKey: reminder.key
-      },
-      webpush: {
-        headers: {
-          Urgency: "high",
-          TTL: "300"
-        }
-      }
-    });
+    const response = await admin.messaging().sendEachForMulticast(
+      buildMatchPushMessage(tokens, {
+        ...reminder,
+        matchId: freshSnapshot.id
+      })
+    );
 
     if (response.successCount === 0) {
       throw new Error("Ingen registrerte enheter tok imot kampvarslet.");

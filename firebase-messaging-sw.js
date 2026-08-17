@@ -1,17 +1,7 @@
-importScripts('https://www.gstatic.com/firebasejs/12.6.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/12.6.0/firebase-messaging-compat.js');
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAKZMu2HZPmmoZ1fFT7DNA9Q6ystbKEPgE",
-  authDomain: "samnanger-g14-f10a1.firebaseapp.com",
-  projectId: "samnanger-g14-f10a1",
-  storageBucket: "samnanger-g14-f10a1.firebasestorage.app",
-  messagingSenderId: "926427862844",
-  appId: "1:926427862844:web:5e6d11bb689c802d01b039",
-  measurementId: "G-EJL3YYC63R"
-};
-
-firebase.initializeApp(firebaseConfig);
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", event => {
+  event.waitUntil(self.clients.claim());
+});
 
 self.addEventListener("push", function(event) {
   if (!event.data) return;
@@ -23,7 +13,10 @@ self.addEventListener("push", function(event) {
     payload = { data: { body: event.data.text() } };
   }
 
-  const message = payload.data || payload.notification || {};
+  const message = {
+    ...(payload.notification || {}),
+    ...(payload.data || {})
+  };
   const title = message.title || "⚽ Samnanger G14";
   const body = message.body || "Nytt kampvarsel";
   const reminderKey = message.reminderKey || "update";
