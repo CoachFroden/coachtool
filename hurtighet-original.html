@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Hurtighet</title>
+  <meta name="theme-color" content="#0b0f1a" />
+  
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="noise"></div>
+
+    <section class="screen active" id="homeScreen">
+      <div class="topbar">
+        <div class="logo">
+          <h1>Hurtighet</h1>
+          <p>Raskare. Skarpare. Meir eksplosiv.</p>
+        </div>
+        <button class="icon-btn" id="menuBtn" aria-label="Åpne meny">☰</button>
+      </div>
+
+      <div class="hero">
+        <div class="orb">⚡</div>
+        <h2 class="headline">Bygg fart som merkast.</h2>
+        <p class="sub">Korte økter. Maks innsats. Null scrolling. Trykk og gå.</p>
+      </div>
+
+      <button class="cta" id="startWorkoutBtn">START ØKT</button>
+
+      <div class="mini-grid">
+        <button class="mini-card" data-open-mode="reaction">
+          <div class="i">🧠</div>
+          <div class="t">Reaksjon</div>
+        </button>
+        <button class="mini-card" data-open-mode="speed">
+          <div class="i">⚡</div>
+          <div class="t">Hurtigheit</div>
+        </button>
+        <button class="mini-card" data-open-mode="power">
+          <div class="i">💥</div>
+          <div class="t">Eksplosiv</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen" id="reactionScreen">
+      <div class="mode-top">
+        <button class="icon-btn backBtn" aria-label="Tilbake">←</button>
+        <div class="badge">Reaksjon</div>
+      </div>
+
+      <div class="center-stack">
+        <div class="panel" style="width:100%;">
+          <div class="reaction-pad ready" id="reactionPad">
+            <div class="pad-inner">
+              <div class="pad-title" id="reactionTitle">Trykk start</div>
+              <div class="pad-sub" id="reactionSubtitle">Vent på pipet. Trykk så fort du kan når det skjer.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-row" style="width:100%;">
+          <div class="stat"><b id="bestReaction">-</b><span>Beste</span></div>
+          <div class="stat"><b id="lastReaction">-</b><span>Siste</span></div>
+          <div class="stat"><b id="reactionCount">0</b><span>Forsøk</span></div>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <button class="ghost" id="startReactionBtn">START TEST</button>
+        <button class="danger" id="resetReactionBtn">NULLSTILL</button>
+      </div>
+    </section>
+
+    <section class="screen" id="exerciseScreen">
+      <div class="mode-top">
+        <button class="icon-btn backBtn" aria-label="Tilbake">←</button>
+        <div class="badge" id="exerciseModeBadge">Økt</div>
+      </div>
+
+      <div class="panel exercise-card">
+        <div class="exercise-meta" id="exerciseStepMeta">Steg 1 av 3</div>
+        <div class="exercise-title" id="exerciseTitle">Knebøyhopp</div>
+        <div class="count" id="exerciseCount">x5</div>
+        <div class="exercise-desc" id="exerciseDesc">Gå roleg ned, eksploder opp. Land mjukt og kontrollert.</div>
+      </div>
+
+      <div class="panel">
+        <div class="progress"><div id="exerciseProgress"></div></div>
+      </div>
+
+      <div class="footer-actions">
+        <button class="ghost" id="prevExerciseBtn">FORRIGE</button>
+        <button class="cta" id="nextExerciseBtn" style="padding:14px 16px;border-radius:18px;">FERDIG</button>
+      </div>
+    </section>
+
+    <div class="sheet" id="menuSheet">
+      <div class="grabber"></div>
+      <h2>Hurtighet</h2>
+      <div class="menu-list">
+        <button class="menu-item" data-open-mode="reaction">
+          <div>🧠 Reaksjon<small>Pip på tilfeldig tid og mål respons</small></div>
+          <span>→</span>
+        </button>
+        <button class="menu-item" data-open-mode="speed">
+          <div>⚡ Hurtigheit<small>Korte sprintar og raske første steg</small></div>
+          <span>→</span>
+        </button>
+        <button class="menu-item" data-open-mode="power">
+          <div>💥 Eksplosivitet<small>Hopp og kraft i beina</small></div>
+          <span>→</span>
+        </button>
+        <button class="menu-item" id="openWorkoutFromMenu">
+          <div>🔥 Dagens økt<small>Tre steg. Enkelt. Hardt.</small></div>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</body>
+</html>

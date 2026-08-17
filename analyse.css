@@ -162,3 +162,176 @@ body {
 .calibration-neutral {
   background-color: #f4f4f4;
 }
+
+/* =========================================
+   WEEK COMPARISON BARS
+========================================= */
+
+.week-comparison {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.06);
+}
+
+.week-comparison h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.bar {
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.bar div {
+  height: 100%;
+  width: 0%;
+  background: #2563eb;
+  transition: width 0.4s ease;
+}
+
+/* ======================================
+   Spillere som bør følges opp
+====================================== */
+
+.alert-item{
+  background:#fff7ed;
+  border-left:4px solid #f97316;
+  padding:10px 12px;
+  margin-bottom:10px;
+  border-radius:6px;
+  cursor:pointer;
+  transition:all 0.18s ease;
+}
+
+.alert-item:hover{
+  background:#ffedd5;
+  transform:translateX(4px);
+  box-shadow:0 3px 10px rgba(0,0,0,0.08);
+}
+
+.alert-item strong{
+  display:block;
+  font-weight:600;
+  margin-bottom:4px;
+}
+
+.alert-item div{
+  font-size:14px;
+  color:#9a3412;
+}
+
+#analysisAlerts{
+  margin-bottom:20px;
+}
+
+.week-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.week-table th {
+  text-align: left;
+  font-weight: 600;
+  color: #64748b;
+  padding-bottom: 4px;
+}
+
+.week-table td {
+  padding: 4px 0;
+}
+
+.week-table tbody tr:not(:last-child) td {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.followup-warning{
+  grid-column:1 / -1;
+  background:#fff3cd;
+  border-left:6px solid #f59e0b;
+  padding:12px 14px;
+  border-radius:8px;
+  font-weight:600;
+}
+
+.coach-score-box{
+  background:#eef2ff;
+  border-left:6px solid #6366f1;
+}
+
+.week-table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+.week-table td,
+.week-table th{
+  padding:6px 4px;
+}
+
+.week-table tbody tr:nth-child(even){
+  background:#f8fafc;
+}
+
+/* =========================================
+CARD LAYOUT
+========================================= */
+
+.card{
+background:white;
+border-radius:12px;
+padding:24px;
+margin-bottom:24px;
+box-shadow:0 3px 12px rgba(0,0,0,0.06);
+}
+
+/* seksjon titler */
+
+.card h2{
+margin-top:0;
+margin-bottom:16px;
+font-size:18px;
+border-bottom:1px solid #e5e7eb;
+padding-bottom:6px;
+}
+
+/* stats grid */
+
+.analysis-stats{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+gap:14px;
+}
+
+/* warning */
+
+.followup-warning{
+grid-column:1 / -1;
+background:#fff3cd;
+border-left:6px solid #f59e0b;
+padding:12px 14px;
+border-radius:8px;
+font-weight:600;
+}
+
+/* trener score */
+
+.coach-score-box{
+background:#eef2ff;
+border-left:6px solid #6366f1;
+}
+

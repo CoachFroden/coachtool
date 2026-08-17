@@ -74,8 +74,54 @@ const FORMATIONS = {
 
     { x: 35, y: 25 },
     { x: 65, y: 25 }
+  ],
+
+  "4-5-1": [
+    { x: 50, y: 93 },
+
+    { x: 15, y: 75 },
+    { x: 38, y: 80 },
+    { x: 62, y: 80 },
+    { x: 85, y: 75 },
+
+    { x: 12, y: 48 },
+    { x: 31, y: 54 },
+    { x: 50, y: 58 },
+    { x: 69, y: 54 },
+    { x: 88, y: 48 },
+
+    { x: 50, y: 22 }
   ]
 };
+
+const DEFAULT_451_PLAYER_NAMES = [
+  "Thage",
+  "Gabriel", "Ask", "Martin", "Brage",
+  "Liam", "Lars", "Nicolai", "Snorre", "Lukas",
+  "Noah"
+];
+
+function buildDefault451Lineup() {
+  const positions = FORMATIONS["4-5-1"];
+
+  return DEFAULT_451_PLAYER_NAMES.map((firstName, index) => {
+    const player = squad.find(candidate =>
+      String(candidate?.name || "")
+        .trim()
+        .split(/\s+/)[0]
+        .toLocaleLowerCase("no") === firstName.toLocaleLowerCase("no")
+    );
+
+    if (!player) return null;
+
+    return {
+      id: player.id,
+      name: player.name,
+      x: positions[index].x,
+      y: positions[index].y
+    };
+  }).filter(Boolean);
+}
 
 /* =========================
    DOM
@@ -306,6 +352,21 @@ async function saveLineup() {
   if (!canEditLineup()) return;
 
   try {
+    const squadByName = new Map(
+      squad.map(player => [
+        String(player.name || "").trim().split(/\s+/)[0].toLocaleLowerCase("no"),
+        player
+      ])
+    );
+
+    // En spiller som ikke er i kamptroppen kan aldri bli liggende på banen.
+    currentLineup = currentLineup.filter(lineupPlayer => {
+      const squadPlayer = squadByName.get(
+        String(lineupPlayer.name || "").trim().split(/\s+/)[0].toLocaleLowerCase("no")
+      );
+      return squadPlayer && squadPlayer.present !== false;
+    });
+
     // 🔥 bygg players-objekt
     const playersData = {};
 
@@ -313,13 +374,18 @@ async function saveLineup() {
       const id = player.id;  // evt bruk ekte id hvis du har
       playersData[id] = {
         name: player.name,
-        present: player.present !== false
+        present: player.present !== false,
+        starter: isPlayerOnPitch(player),
+        isLoan: player.isLoan === true
       };
     });
 
     await updateDoc(doc(db, "matches", activeMatchId), {
       lineup: currentLineup,
-      players: playersData // 🔥 NY
+      players: playersData, // 🔥 NY
+      formation: currentFormation,
+      onField: deleteField(),
+      lineupConfirmed: currentLineup.length === 11
     });
 
     console.log("Lineup + players lagret");
@@ -336,10 +402,14 @@ async function loadLoanPlayers(matchId) {
 
   const players = snap.data().players || {};
 
-  return Object.entries(players).map(([id, p]) => ({
-  name: p.name,
-  isLoan: true
-}));
+  return Object.entries(players)
+    .filter(([id, p]) => id.startsWith("loan_") || p.isLoan === true)
+    .map(([id, p]) => ({
+      id,
+      name: p.name,
+      isLoan: true,
+      present: p.present !== false
+    }));
 }
 
 async function removeLoanPlayer(matchId, playerName) {
@@ -394,7 +464,9 @@ async function addLoanPlayerToMatch(matchId, name) {
 
   await updateDoc(doc(db, "matches", matchId), {
     [`players.${id}`]: {
-      name: name
+      name: name,
+      isLoan: true,
+      present: true
     }
   });
 
@@ -433,6 +505,7 @@ function setupModalHandlers() {
 
 async function openPitchModal(match) {
   activeMatchId = match.id;
+  let initializedDefaultLineup = false;
 
   // 🔥 LAST SPILLERE FØRST
   await loadPlayers(match.id);
@@ -447,16 +520,37 @@ try {
   const snap = await getDoc(doc(db, "matches", match.id));
   const data = snap.data();
 
-  currentLineup = data?.lineup || [];
-  currentFormation = data?.formation || "4-3-3";
+  const hasSavedLineup = Array.isArray(data?.lineup);
+
+  if (hasSavedLineup) {
+    currentLineup = data.lineup;
+    currentFormation = data?.formation || "4-3-3";
+  } else {
+    currentFormation = "4-5-1";
+    currentLineup = buildDefault451Lineup();
+    initializedDefaultLineup =
+      currentLineup.length === DEFAULT_451_PLAYER_NAMES.length;
+
+    if (!initializedDefaultLineup) {
+      console.warn("Standardoppstillingen mangler én eller flere spillere.");
+    }
+  }
 
   // 🔥 HER ↓↓↓
   if (data?.players) {
+    const savedPlayers = Object.values(data.players);
     squad.forEach(player => {
-const saved = data.players?.[player.id];
-if (saved) {
-  player.present = saved.present !== false;
-}
+      const playerKey = String(player.name || "")
+        .trim()
+        .split(/\s+/)[0]
+        .toLocaleLowerCase("no");
+      const saved = data.players?.[player.id] || savedPlayers.find(candidate =>
+        String(candidate?.name || "")
+          .trim()
+          .split(/\s+/)[0]
+          .toLocaleLowerCase("no") === playerKey
+      );
+
       if (saved) {
         player.present = saved.present !== false;
       }
@@ -471,6 +565,10 @@ if (saved) {
   }
 
   updateFormationUI();
+
+  if (initializedDefaultLineup && canEditLineup()) {
+    await saveLineup();
+  }
 
   // 🔥 RENDER ETTER ALT ER LASTET
   renderLineup();
@@ -974,7 +1072,7 @@ formationEl.onclick = () => {
   if (!canEditLineup()) return;
 
   const newFormation = prompt(
-    "Velg formasjon (4-3-3 / 4-4-2):",
+    "Velg formasjon (4-3-3 / 4-4-2 / 4-5-1):",
     currentFormation
   );
 

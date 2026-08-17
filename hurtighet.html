@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Hurtighet</title>
+<link rel="stylesheet" href="hurtighet.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- START -->
+<section id="start" class="screen active">
+
+  <div class="hero">
+
+    <div class="bolt">⚡</div>
+
+    <h1 class="main">
+      BLI<br>RASKERE
+    </h1>
+
+    <p class="sub">
+      15 min økt for fart og eksplosivitet
+    </p>
+
+  </div>
+
+  <button id="startBtn">START</button>
+
+</section>
+
+  <!-- ØKT -->
+<section id="workout" class="screen">
+
+  <div id="backBtn">✕</div>
+<div id="resetBtn">↺</div>
+<div class="progressWrap">
+  <div class="boltSmall">⚡</div>
+  <div id="step"></div>
+</div>
+
+<div class="card hidden" id="exerciseBox">
+  <h2 id="title"></h2>
+  <p id="desc"></p>
+</div>
+
+<div class="hint hidden" id="hint">Trykk på kortet for forklaring</div>
+
+  <button id="reaction" class="hidden">START REAKSJON</button>
+
+  <button id="next">START ØKT</button>
+
+  <div id="tip"></div>
+
+</section>
+
+<!-- MODAL -->
+<div id="modal" class="modal hidden">
+  <div class="modalContent">
+    
+    <p id="modalText"></p>
+  </div>
+</div>
+
+</div>
+
+<script src="hurtighet.js"></script>
+</body>
+</html>

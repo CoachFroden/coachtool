@@ -1,0 +1,122 @@
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #020617;
+  color: white;
+  display: flex;
+  justify-content: center;
+}
+
+#app {
+  max-width: 420px;
+  width: 100%;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+section {
+  display: none;
+}
+
+section.active {
+  display: block;
+}
+
+/* START */
+h1 {
+  font-size: 40px;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  color: #94a3b8;
+  margin-bottom: 30px;
+}
+
+.menu {
+  width: 100%;
+  padding: 18px;
+  margin-bottom: 12px;
+  font-size: 18px;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: white;
+}
+
+.info {
+  margin-top: 20px;
+  font-size: 14px;
+  color: #fbbf24;
+}
+
+/* WORKOUT */
+#back {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+#title {
+  font-size: 28px;
+}
+
+#intro {
+  color: #94a3b8;
+  margin-bottom: 20px;
+}
+
+#card {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 16px;
+}
+
+#stepTitle {
+  font-size: 22px;
+}
+
+#stepDesc {
+  margin-top: 10px;
+}
+
+.meta {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.tip {
+  margin-top: 15px;
+  color: #22c55e;
+}
+
+.nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.nav button {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+#next {
+  background: #22c55e;
+}
+
+#prev {
+  background: #334155;
+  color: white;
+}
+
+#progress {
+  margin-top: 20px;
+  text-align: center;
+  color: #94a3b8;
+}

@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Hurtighet</title>
+  <meta name="theme-color" content="#0b0f1a" />
+  <style>
+    :root {
+      --bg: #0b0f1a;
+      --bg-2: #11182a;
+      --card: rgba(255,255,255,0.08);
+      --card-2: rgba(255,255,255,0.12);
+      --text: #f5f7ff;
+      --muted: #a7b0c8;
+      --accent: #53f3c3;
+      --accent-2: #5aa7ff;
+      --danger: #ff5d73;
+      --gold: #ffd34d;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(83,243,195,0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(90,167,255,0.16), transparent 30%),
+        linear-gradient(180deg, #08101d, #0b0f1a 48%, #121726);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      user-select: none;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom) 14px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 430px;
+      height: min(92vh, 860px);
+      position: relative;
+      border-radius: 30px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .noise {
+      position: absolute;
+      inset: 0;
+      opacity: 0.08;
+      pointer-events: none;
+      background-image:
+        radial-gradient(rgba(255,255,255,0.35) 0.6px, transparent 0.6px);
+      background-size: 10px 10px;
+      mix-blend-mode: soft-light;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      padding: 18px;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .logo {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .logo h1 {
+      margin: 0;
+      font-size: 1.45rem;
+      letter-spacing: 0.02em;
+    }
+
+    .logo p {
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .icon-btn {
+      width: 46px;
+      height: 46px;
+      border: 0;
+      border-radius: 16px;
+      background: var(--card);
+      color: var(--text);
+      font-size: 1.15rem;
+      display: grid;
+      place-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      gap: 14px;
+      padding: 8px;
+    }
+
+    .orb {
+      width: 172px;
+      height: 172px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.38), transparent 20%),
+        radial-gradient(circle at center, rgba(83,243,195,0.55), rgba(90,167,255,0.22) 55%, rgba(255,255,255,0.03) 70%);
+      box-shadow: 0 0 50px rgba(83,243,195,0.22), inset 0 0 40px rgba(255,255,255,0.08);
+      display: grid;
+      place-items: center;
+      font-size: 3rem;
+      animation: pulse 2.3s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%,100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .headline {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.05;
+      margin: 0;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      max-width: 300px;
+      line-height: 1.4;
+    }
+
+    .cta {
+      width: 100%;
+      border: 0;
+      border-radius: 24px;
+      padding: 18px 18px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #071018;
+      font-weight: 900;
+      font-size: 1.1rem;
+      box-shadow: 0 12px 30px rgba(83,243,195,0.22);
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .mini-card {
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 18px;
+      padding: 12px 10px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .mini-card .i {
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+    }
+
+    .mini-card .t {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      transform: translateY(104%);
+      transition: transform 0.28s ease;
+      background: linear-gradient(180deg, rgba(18,24,42,0.98), rgba(9,12,22,0.98));
+      border-top-left-radius: 28px;
+      border-top-right-radius: 28px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 14px;
+      z-index: 5;
+      box-shadow: 0 -18px 45px rgba(0,0,0,0.45);
+    }
+
+    .sheet.open {
+      transform: translateY(0);
+    }
+
+    .grabber {
+      width: 54px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.2);
+      margin: 0 auto 12px;
+    }
+
+    .sheet h2 {
+      margin: 0 0 12px;
+      font-size: 1.08rem;
+    }
+
+    .menu-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .menu-item {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: var(--card);
+      color: var(--text);
+      border-radius: 18px;
+      padding: 14px;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1rem;
+    }
+
+    .menu-item small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 4px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel h2, .panel h3, .panel p { margin: 0; }
+
+    .mode-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(83,243,195,0.12);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .center-stack {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .count {
+      font-size: clamp(3rem, 12vw, 5.8rem);
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .big-status {
+      font-size: clamp(1.2rem, 5vw, 2rem);
+      font-weight: 800;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.35;
+      max-width: 300px;
+    }
+
+    .reaction-pad {
+      width: 100%;
+      min-height: 240px;
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 40px rgba(255,255,255,0.02), var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .reaction-pad.go {
+      background: linear-gradient(180deg, rgba(83,243,195,0.24), rgba(90,167,255,0.22));
+      box-shadow: 0 0 50px rgba(83,243,195,0.22), inset 0 0 60px rgba(255,255,255,0.05);
+    }
+
+    .reaction-pad.early {
+      background: linear-gradient(180deg, rgba(255,93,115,0.28), rgba(255,93,115,0.16));
+    }
+
+    .reaction-pad.ready {
+      background: linear-gradient(180deg, rgba(255,211,77,0.22), rgba(255,211,77,0.12));
+    }
+
+    .pad-inner {
+      padding: 18px;
+      text-align: center;
+    }
+
+    .pad-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .pad-sub {
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.4;
+    }
+
+    .footer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .ghost, .danger {
+      width: 100%;
+      border: 0;
+      border-radius: 18px;
+      padding: 14px 16px;
+      font-weight: 800;
+      font-size: 0.96rem;
+    }
+
+    .ghost {
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .danger {
+      background: rgba(255,93,115,0.14);
+      color: #ffd2d8;
+    }
+
+    .exercise-card {
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .exercise-title {
+      font-size: 2rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .exercise-meta {
+      color: var(--gold);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .exercise-desc {
+      color: var(--muted);
+      line-height: 1.4;
+      font-size: 0.98rem;
+    }
+
+    .progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+
+    .progress > div {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.25s ease;
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%) translateY(120px);
+      background: rgba(10,15,26,0.94);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 0.92rem;
+      box-shadow: var(--shadow);
+      transition: transform 0.25s ease;
+      z-index: 20;
+      text-align: center;
+      min-width: 200px;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .flash {
+      animation: flash 0.18s ease 2;
+    }
+
+    @keyframes flash {
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="noise"></div>
+
+    <section class="screen active" id="homeScreen">
+      <div class="topbar">
+        <div class="logo">
+          <h1>Hurtighet</h1>
+          <p>Raskare. Skarpare. Meir eksplosiv.</p>
+        </div>
+        <button class="icon-btn" id="menuBtn" aria-label="Åpne meny">☰</button>
+      </div>
+
+      <div class="hero">
+        <div class="orb">⚡</div>
+        <h2 class="headline">Bygg fart som merkast.</h2>
+        <p class="sub">Korte økter. Maks innsats. Null scrolling. Trykk og gå.</p>
+      </div>
+
+      <button class="cta" id="startWorkoutBtn">START ØKT</button>
+
+      <div class="mini-grid">
+        <button class="mini-card" data-open-mode="reaction">
+          <div class="i">🧠</div>
+          <div class="t">Reaksjon</div>
+        </button>
+        <button class="mini-card" data-open-mode="speed">
+          <div class="i">⚡</div>
+          <div class="t">Hurtigheit</div>
+        </button>
+        <button class="mini-card" data-open-mode="power">
+          <div class="i">💥</div>
+          <div class="t">Eksplosiv</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen" id="reactionScreen">
+      <div class="mode-top">
+        <button class="icon-btn backBtn" aria-label="Tilbake">←</button>
+        <div class="badge">Reaksjon</div>
+      </div>
+
+      <div class="center-stack">
+        <div class="panel" style="width:100%;">
+          <div class="reaction-pad ready" id="reactionPad">
+            <div class="pad-inner">
+              <div class="pad-title" id="reactionTitle">Trykk start</div>
+              <div class="pad-sub" id="reactionSubtitle">Vent på pipet. Trykk så fort du kan når det skjer.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-row" style="width:100%;">
+          <div class="stat"><b id="bestReaction">-</b><span>Beste</span></div>
+          <div class="stat"><b id="lastReaction">-</b><span>Siste</span></div>
+          <div class="stat"><b id="reactionCount">0</b><span>Forsøk</span></div>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <button class="ghost" id="startReactionBtn">START TEST</button>
+        <button class="danger" id="resetReactionBtn">NULLSTILL</button>
+      </div>
+    </section>
+
+    <section class="screen" id="exerciseScreen">
+      <div class="mode-top">
+        <button class="icon-btn backBtn" aria-label="Tilbake">←</button>
+        <div class="badge" id="exerciseModeBadge">Økt</div>
+      </div>
+
+      <div class="panel exercise-card">
+        <div class="exercise-meta" id="exerciseStepMeta">Steg 1 av 3</div>
+        <div class="exercise-title" id="exerciseTitle">Knebøyhopp</div>
+        <div class="count" id="exerciseCount">x5</div>
+        <div class="exercise-desc" id="exerciseDesc">Gå roleg ned, eksploder opp. Land mjukt og kontrollert.</div>
+      </div>
+
+      <div class="panel">
+        <div class="progress"><div id="exerciseProgress"></div></div>
+      </div>
+
+      <div class="footer-actions">
+        <button class="ghost" id="prevExerciseBtn">FORRIGE</button>
+        <button class="cta" id="nextExerciseBtn" style="padding:14px 16px;border-radius:18px;">FERDIG</button>
+      </div>
+    </section>
+
+    <div class="sheet" id="menuSheet">
+      <div class="grabber"></div>
+      <h2>Hurtighet</h2>
+      <div class="menu-list">
+        <button class="menu-item" data-open-mode="reaction">
+          <div>🧠 Reaksjon<small>Pip på tilfeldig tid og mål respons</small></div>
+          <span>→</span>
+        </button>
+        <button class="menu-item" data-open-mode="speed">
+          <div>⚡ Hurtigheit<small>Korte sprintar og raske første steg</small></div>
+          <span>→</span>
+        </button>
+        <button class="menu-item" data-open-mode="power">
+          <div>💥 Eksplosivitet<small>Hopp og kraft i beina</small></div>
+          <span>→</span>
+        </button>
+        <button class="menu-item" id="openWorkoutFromMenu">
+          <div>🔥 Dagens økt<small>Tre steg. Enkelt. Hardt.</small></div>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script>
+    const screens = {
+      home: document.getElementById('homeScreen'),
+      reaction: document.getElementById('reactionScreen'),
+      exercise: document.getElementById('exerciseScreen')
+    };
+
+    const menuBtn = document.getElementById('menuBtn');
+    const menuSheet = document.getElementById('menuSheet');
+    const toast = document.getElementById('toast');
+
+    const reactionPad = document.getElementById('reactionPad');
+    const reactionTitle = document.getElementById('reactionTitle');
+    const reactionSubtitle = document.getElementById('reactionSubtitle');
+    const startReactionBtn = document.getElementById('startReactionBtn');
+    const resetReactionBtn = document.getElementById('resetReactionBtn');
+    const bestReaction = document.getElementById('bestReaction');
+    const lastReaction = document.getElementById('lastReaction');
+    const reactionCount = document.getElementById('reactionCount');
+
+    const startWorkoutBtn = document.getElementById('startWorkoutBtn');
+    const openWorkoutFromMenu = document.getElementById('openWorkoutFromMenu');
+    const exerciseModeBadge = document.getElementById('exerciseModeBadge');
+    const exerciseStepMeta = document.getElementById('exerciseStepMeta');
+    const exerciseTitle = document.getElementById('exerciseTitle');
+    const exerciseCount = document.getElementById('exerciseCount');
+    const exerciseDesc = document.getElementById('exerciseDesc');
+    const exerciseProgress = document.getElementById('exerciseProgress');
+    const nextExerciseBtn = document.getElementById('nextExerciseBtn');
+    const prevExerciseBtn = document.getElementById('prevExerciseBtn');
+
+    const state = {
+      reaction: {
+        isWaiting: false,
+        isReady: false,
+        startAt: 0,
+        timeoutId: null,
+        best: Number(localStorage.getItem('hurtighet_best_reaction')) || null,
+        last: Number(localStorage.getItem('hurtighet_last_reaction')) || null,
+        count: Number(localStorage.getItem('hurtighet_reaction_count')) || 0
+      },
+      exerciseMode: 'workout',
+      exerciseIndex: 0
+    };
+
+    const exerciseSets = {
+      workout: {
+        badge: 'Dagens økt',
+        items: [
+          {
+            title: 'Knebøyhopp',
+            count: 'x5',
+            desc: 'Gå roleg ned, eksploder rett opp. Land mjukt og klart for neste hopp.'
+          },
+          {
+            title: 'Sprintstart',
+            count: 'x6',
+            desc: 'Finn 5–10 meter plass. Første tre steg skal vere så raske og kraftige du klarer.'
+          },
+          {
+            title: 'Reaksjon',
+            count: 'x5',
+            desc: 'Gå til reaksjonsmodus og slå bestetida di. Maks fokus på første respons.'
+          }
+        ]
+      },
+      speed: {
+        badge: 'Hurtigheit',
+        items: [
+          {
+            title: 'Raske føter',
+            count: '10 sek x3',
+            desc: 'Små, lynraske steg på staden. Lett i bakken, høgt tempo.'
+          },
+          {
+            title: 'Sprint 5–10 m',
+            count: 'x6',
+            desc: 'Pause godt mellom kvar. Full fart kvar gong, elles tel det ikkje.'
+          },
+          {
+            title: 'Stopp og snu',
+            count: 'x4',
+            desc: 'Sprint ut, brems hardt, snu og eksploder tilbake.'
+          }
+        ]
+      },
+      power: {
+        badge: 'Eksplosiv',
+        items: [
+          {
+            title: 'Lengdehopp',
+            count: 'x4',
+            desc: 'Hopp så kraftig fram du klarer. Stå stabilt når du landar.'
+          },
+          {
+            title: 'Eittbeins hopp',
+            count: 'x4 kvar',
+            desc: 'Korte, kraftige hopp. God kontroll i kne og hofte.'
+          },
+          {
+            title: 'Knebøyhopp',
+            count: 'x5',
+            desc: 'Eksploder rett opp. Kort pause mellom kvar serie.'
+          }
+        ]
+      }
+    };
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    function showScreen(name) {
+      Object.values(screens).forEach(el => el.classList.remove('active'));
+      screens[name].classList.add('active');
+      closeMenu();
+    }
+
+    function openMenu() {
+      menuSheet.classList.add('open');
+    }
+
+    function closeMenu() {
+      menuSheet.classList.remove('open');
+    }
+
+    menuBtn.addEventListener('click', () => {
+      menuSheet.classList.contains('open') ? closeMenu() : openMenu();
+    });
+
+    document.addEventListener('click', (e) => {
+      const clickedInsideSheet = menuSheet.contains(e.target);
+      const clickedMenuBtn = menuBtn.contains(e.target);
+      if (!clickedInsideSheet && !clickedMenuBtn) closeMenu();
+    });
+
+    document.querySelectorAll('.backBtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        stopReactionTest(false);
+        showScreen('home');
+      });
+    });
+
+    document.querySelectorAll('[data-open-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.openMode;
+        if (mode === 'reaction') {
+          showScreen('reaction');
+        } else {
+          openExerciseMode(mode);
+        }
+      });
+    });
+
+    function renderReactionStats() {
+      bestReaction.textContent = state.reaction.best ? state.reaction.best + ' ms' : '-';
+      lastReaction.textContent = state.reaction.last ? state.reaction.last + ' ms' : '-';
+      reactionCount.textContent = String(state.reaction.count);
+    }
+
+    function saveReactionStats() {
+      localStorage.setItem('hurtighet_best_reaction', state.reaction.best || '');
+      localStorage.setItem('hurtighet_last_reaction', state.reaction.last || '');
+      localStorage.setItem('hurtighet_reaction_count', String(state.reaction.count));
+    }
+
+    function resetReactionView() {
+      reactionPad.className = 'reaction-pad ready';
+      reactionTitle.textContent = 'Trykk start';
+      reactionSubtitle.textContent = 'Vent på pipet. Trykk så fort du kan når det skjer.';
+    }
+
+    function playBeep(duration = 0.12, frequency = 880) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = playBeep._ctx || new AudioCtx();
+      playBeep._ctx = ctx;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = frequency;
+      gain.gain.value = 0.001;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const now = ctx.currentTime;
+      gain.gain.exponentialRampToValueAtTime(0.15, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    }
+
+function startReactionTest() {
+  stopReactionTest(false);
+
+  reactionPad.className = 'reaction-pad';
+  reactionTitle.textContent = 'VENT...';
+  reactionSubtitle.textContent = 'Sprint KUN på signal';
+
+  const delay = Math.random() * 3000 + 2000;
+
+  const isFake = Math.random() < 0.25; // 25% fake
+
+  state.reaction.timeoutId = setTimeout(() => {
+
+    if (isFake) {
+      // Fake signal – gjør ingenting
+      reactionTitle.textContent = '...';
+      reactionSubtitle.textContent = 'Hold fokus';
+      showToast('Fake! Ikkje start');
+      return;
+    }
+
+    // Ekte signal
+    reactionPad.classList.add('go', 'flash');
+    reactionTitle.textContent = 'GÅ!';
+    reactionSubtitle.textContent = 'SPRINT!';
+
+    playBeep();
+
+  }, delay);
+}
+
+    function stopReactionTest(resetUI = true) {
+      clearTimeout(state.reaction.timeoutId);
+      state.reaction.timeoutId = null;
+      state.reaction.isWaiting = false;
+      state.reaction.isReady = false;
+      state.reaction.startAt = 0;
+      if (resetUI) resetReactionView();
+    }
+
+    function handleReactionTap() {
+      if (state.reaction.isWaiting) {
+        stopReactionTest(false);
+        reactionPad.className = 'reaction-pad early';
+        reactionTitle.textContent = 'For tidleg';
+        reactionSubtitle.textContent = 'Vent på pipet før du trykker. Prøv igjen.';
+        playBeep(0.2, 220);
+        showToast('For tidleg. Vent på signalet.');
+        return;
+      }
+
+      if (!state.reaction.isReady) return;
+
+      const reactionMs = Math.round(performance.now() - state.reaction.startAt);
+      state.reaction.last = reactionMs;
+      state.reaction.count += 1;
+
+      let newBest = false;
+      if (!state.reaction.best || reactionMs < state.reaction.best) {
+        state.reaction.best = reactionMs;
+        newBest = true;
+      }
+
+      saveReactionStats();
+      renderReactionStats();
+      stopReactionTest(false);
+
+      reactionPad.className = 'reaction-pad ready';
+      reactionTitle.textContent = reactionMs + ' ms';
+      reactionSubtitle.textContent = newBest ? 'Ny personleg rekord.' : 'Sterkt. Klar for nytt forsøk?';
+      showToast(newBest ? 'Ny bestetid: ' + reactionMs + ' ms' : 'Siste tid: ' + reactionMs + ' ms');
+    }
+
+    reactionPad.addEventListener('click', handleReactionTap);
+    startReactionBtn.addEventListener('click', startReactionTest);
+    resetReactionBtn.addEventListener('click', () => {
+      stopReactionTest(true);
+      state.reaction.best = null;
+      state.reaction.last = null;
+      state.reaction.count = 0;
+      saveReactionStats();
+      renderReactionStats();
+      showToast('Reaksjon nullstilt');
+    });
+
+    function openExerciseMode(mode = 'workout') {
+      state.exerciseMode = mode;
+      state.exerciseIndex = 0;
+      renderExercise();
+      showScreen('exercise');
+    }
+
+    function renderExercise() {
+      const set = exerciseSets[state.exerciseMode];
+      const item = set.items[state.exerciseIndex];
+      exerciseModeBadge.textContent = set.badge;
+      exerciseStepMeta.textContent = `Steg ${state.exerciseIndex + 1} av ${set.items.length}`;
+      exerciseTitle.textContent = item.title;
+      exerciseCount.textContent = item.count;
+      exerciseDesc.textContent = item.desc;
+      exerciseProgress.style.width = `${((state.exerciseIndex + 1) / set.items.length) * 100}%`;
+      prevExerciseBtn.disabled = state.exerciseIndex === 0;
+      prevExerciseBtn.style.opacity = state.exerciseIndex === 0 ? '0.45' : '1';
+      nextExerciseBtn.textContent = state.exerciseIndex === set.items.length - 1 ? 'FULLFØR' : 'FERDIG';
+    }
+
+    nextExerciseBtn.addEventListener('click', () => {
+      const set = exerciseSets[state.exerciseMode];
+      if (state.exerciseIndex < set.items.length - 1) {
+        state.exerciseIndex += 1;
+        renderExercise();
+        if (set.items[state.exerciseIndex].title === 'Reaksjon') {
+          showToast('Neste: gå til reaksjon og test deg');
+        }
+      } else {
+        showToast('Økt fullført');
+        showScreen('home');
+      }
+    });
+
+    prevExerciseBtn.addEventListener('click', () => {
+      if (state.exerciseIndex > 0) {
+        state.exerciseIndex -= 1;
+        renderExercise();
+      }
+    });
+
+    startWorkoutBtn.addEventListener('click', () => openExerciseMode('workout'));
+    openWorkoutFromMenu.addEventListener('click', () => openExerciseMode('workout'));
+
+    renderReactionStats();
+    resetReactionView();
+  </script>
+</body>
+</html>

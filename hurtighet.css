@@ -1,0 +1,303 @@
+* {
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:system-ui, sans-serif;
+}
+
+html, body {
+  height:100%;
+}
+
+/* BAKGRUNN */
+body {
+  background: radial-gradient(circle at 50% 20%, #2563eb, #020617 80%);
+  color:white;
+}
+
+/* APP CONTAINER */
+#app {
+  position: relative;
+  height:100vh;
+  max-width:420px;
+  margin:0 auto;
+}
+
+/* SCREENS (helt riktig måte) */
+.screen {
+  position:absolute;
+  inset:0;
+  display:none;
+  padding:20px;
+}
+
+.screen.active {
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  padding-top:80px;
+}
+
+/* ========================= */
+/* STARTSKJERM */
+/* ========================= */
+
+#start {
+  justify-content:flex-start;
+  text-align:center;
+  padding-top:80px;
+}
+
+.hero {
+  margin-top:30px;
+}
+
+.bolt {
+  font-size:70px;
+  margin-bottom:20px;
+}
+
+.main {
+  font-size:48px;
+  line-height:0.9;
+  font-weight:900;
+}
+
+.sub {
+  margin-top:15px;
+  font-size:16px;
+  opacity:0.7;
+}
+
+/* START KNAPP */
+#startBtn {
+  margin-top:60px;
+  padding:20px;
+  border:none;
+  border-radius:20px;
+  font-size:18px;
+  background: linear-gradient(90deg,#3b82f6,#06b6d4);
+  color:white;
+  box-shadow: 0 10px 40px rgba(59,130,246,0.6);
+}
+
+/* ========================= */
+/* WORKOUT (ØKT) */
+/* ========================= */
+
+.simple {
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  gap:20px;
+}
+
+.simple h2 {
+  font-size:24px;
+  opacity:0.8;
+}
+
+/* ØVELSESBOKS */
+#exerciseBox {
+  text-align:center;
+}
+
+#title {
+  font-size:36px;
+  font-weight:800;
+  letter-spacing:1px;
+}
+
+#desc {
+  margin-top:10px;
+  font-size:18px;
+  opacity:0.85;
+}
+
+/* KNAPPER */
+button {
+  padding:16px;
+  border:none;
+  border-radius:14px;
+  font-size:16px;
+}
+
+/* NESTE */
+#next {
+  margin-top:30px;
+  padding:18px 40px;
+  border-radius:20px;
+  background: linear-gradient(90deg,#3b82f6,#06b6d4);
+  box-shadow: 0 10px 30px rgba(59,130,246,0.5);
+}
+
+/* TILBAKE */
+#backBtn {
+  background:#1e3a8a;
+  color:white;
+}
+
+/* SKJUL */
+.hidden {
+  display:none;
+}
+
+#backBtn {
+  position:absolute;
+  top:20px;
+  left:20px;
+  font-size:20px;
+  opacity:0.6;
+  cursor:pointer;
+}
+
+/* TOP BAR */
+.topBar {
+  display:flex;
+  justify-content:space-between;
+  opacity:0.7;
+}
+
+/* CARD */
+.card {
+  background: linear-gradient(180deg, rgba(30,58,138,0.8), rgba(2,6,23,0.9));
+  border-radius:24px;
+  padding:30px 20px;
+  text-align:center;
+  position:relative;
+  margin:40px 0 20px 0;
+
+  box-shadow: 
+    0 20px 60px rgba(0,0,0,0.6),
+    inset 0 0 30px rgba(59,130,246,0.2);
+
+  backdrop-filter: blur(10px);
+
+  /* 👇 DETTE ER NYTT */
+  border: 1px solid rgba(59,130,246,0.4);
+}
+
+.card::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:24px;
+  border:1px solid rgba(255,255,255,0.1);
+  pointer-events:none;
+}
+
+.card::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:24px;
+  box-shadow:0 0 40px rgba(59,130,246,0.2);
+  opacity:0.5;
+  pointer-events:none;
+}
+
+#info {
+  position:absolute;
+  top:12px;
+  right:12px;
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  border:none;
+  background:rgba(255,255,255,0.1);
+  color:white;
+}
+
+/* REAKSJON */
+#reaction {
+  margin-top:20px;
+  background:#22c55e;
+  color:black;
+}
+
+/* TIP */
+#tip {
+  text-align:center;
+  font-size:15px;
+  opacity:0.85;
+
+  margin-top:30px;   /* i stedet for auto */
+  margin-bottom:20px;
+
+  font-weight:500;
+}
+
+/* HINT */
+.hint {
+  text-align:center;
+  font-size:13px;
+  opacity:0.5;
+  margin-top:10px;
+}
+
+/* MODAL */
+/* SKJUL (brukes overalt) */
+.hidden {
+  display: none !important;
+}
+
+/* MODAL */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: rgba(0,0,0,0.2); /* lett bakgrunn */
+  z-index: 1000;
+}
+
+/* SELVE BOKSEN */
+.modalContent {
+  background: linear-gradient(180deg, #1e3a8a, #020617);
+  padding: 30px;
+  border-radius: 24px;
+  max-width: 90%;
+  text-align: center;
+
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  position: relative;
+}
+
+#resetBtn {
+  position:absolute;
+  top:20px;
+  right:20px;
+  font-size:18px;
+  opacity:0.6;
+  cursor:pointer;
+}
+
+.progress {
+  text-align:center;
+  font-size:14px;
+  opacity:0.7;
+  margin-bottom:10px;
+}
+
+.progressWrap {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin-bottom:20px;
+  gap:6px;
+}
+
+.boltSmall {
+  font-size:18px;
+  opacity:0.6;
+}
+
+#step {
+  font-size:14px;
+  opacity:0.7;
+}

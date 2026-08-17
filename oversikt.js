@@ -783,9 +783,9 @@ if (addBtn && formContainer) {
 </select>
         </div>
 
-        <div style="display:flex; gap:8px; margin-top:10px;">
-          <button id="saveMatchBtn" class="statsSelect" style="flex:1;">Lagre</button>
-          <button id="cancelMatchBtn" class="statsSelect" style="flex:1;">Avbryt</button>
+        <div class="matchFormActions">
+          <button id="saveMatchBtn" class="matchFormBtn saveMatchAction" type="button">Lagre</button>
+          <button id="cancelMatchBtn" class="matchFormBtn cancelMatchAction" type="button">Avbryt</button>
         </div>
       </div>
     `;
@@ -1157,17 +1157,81 @@ async function loadAllEndedMatches() {
   return matches;
 }
 
-function calculateStats(matches) {
-  const stats = {};
+function normalizeLoanPlayerName(name) {
+  return String(name || "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("no");
+}
+
+function getStatsPlayerKey(player, loanPlayerNames = new Set()) {
+  const playerId = String(player?.id || "");
+  const normalizedName = normalizeLoanPlayerName(player?.name);
+
+  if (
+    playerId.startsWith("loan_") ||
+    player?.isLoan === true ||
+    loanPlayerNames.has(normalizedName)
+  ) {
+    return normalizedName ? `loan:${normalizedName}` : "";
+  }
+
+  return playerId || (normalizedName ? `name:${normalizedName}` : "");
+}
+
+function collectLoanPlayerNames(matches) {
+  const names = new Set();
 
   matches.forEach(match => {
+    (match.playingTime || []).forEach(player => {
+      const playerId = String(player?.id || "");
+      if (playerId.startsWith("loan_") || player?.isLoan === true) {
+        const name = normalizeLoanPlayerName(player?.name);
+        if (name) names.add(name);
+      }
+    });
+
+    Object.entries(match.players || {}).forEach(([playerId, player]) => {
+      if (playerId.startsWith("loan_") || player?.isLoan === true) {
+        const name = normalizeLoanPlayerName(player?.name);
+        if (name) names.add(name);
+      }
+    });
+
+    (match.events || []).forEach(event => {
+      if (String(event?.playerId || "").startsWith("loan_")) {
+        const name = normalizeLoanPlayerName(event?.playerName);
+        if (name) names.add(name);
+      }
+    });
+  });
+
+  return names;
+}
+
+function calculateStats(matches) {
+  const stats = {};
+  // Eldre kamper kan ha mistet loan_-ID-en. Navn som er bekreftet som
+  // lånespillere i minst én kamp slås derfor sammen på tvers av alle kamper.
+  const loanPlayerNames = collectLoanPlayerNames(matches);
+
+  matches.forEach(match => {
+
+    const statsKeyByMatchPlayerId = {};
+    const countedInThisMatch = new Set();
 
     // 🔹 Spillertid + kort
     (match.playingTime || []).forEach(p => {
 
-      if (!stats[p.id]) {
-        stats[p.id] = {
-          name: p.name,
+      const statsKey = getStatsPlayerKey(p, loanPlayerNames);
+      if (!statsKey) return;
+
+      if (p.id) statsKeyByMatchPlayerId[p.id] = statsKey;
+
+      if (!stats[statsKey]) {
+        stats[statsKey] = {
+          name: String(p.name || "Ukjent").trim(),
           matches: 0,
           minutes: 0,
           goals: 0,
@@ -1176,20 +1240,38 @@ function calculateStats(matches) {
         };
       }
 
-      stats[p.id].matches += 1;
-      stats[p.id].minutes += p.minutes || 0;
+      // Samme lånespiller skal bare telle én kamp selv om eldre data
+      // inneholder mer enn én tilfeldig ID i samme kamp.
+      if (!countedInThisMatch.has(statsKey)) {
+        stats[statsKey].matches += 1;
+        countedInThisMatch.add(statsKey);
+      }
+
+      stats[statsKey].minutes += p.minutes || 0;
 
       (p.cards || []).forEach(c => {
-        if (c.type === "yellow") stats[p.id].yellow += 1;
-        if (c.type === "red") stats[p.id].red += 1;
+        if (c.type === "yellow") stats[statsKey].yellow += 1;
+        if (c.type === "red") stats[statsKey].red += 1;
       });
     });
 
     // 🔹 Mål
     (match.events || []).forEach(e => {
       if (e.type === "goal" && e.team === "home" && e.playerId) {
-        if (stats[e.playerId]) {
-          stats[e.playerId].goals += 1;
+        let statsKey = statsKeyByMatchPlayerId[e.playerId];
+
+        // Fallback for eldre lånespillermål der spiller-ID-en ikke lenger
+        // finnes i playingTime, men navnet fortsatt er lagret i hendelsen.
+        if (!statsKey && (
+          String(e.playerId).startsWith("loan_") ||
+          loanPlayerNames.has(normalizeLoanPlayerName(e.playerName))
+        )) {
+          const loanKey = `loan:${normalizeLoanPlayerName(e.playerName)}`;
+          if (stats[loanKey]) statsKey = loanKey;
+        }
+
+        if (statsKey && stats[statsKey]) {
+          stats[statsKey].goals += 1;
         }
       }
     });
@@ -1287,13 +1369,31 @@ function renderMatchDetails(match) {
 
   let html = `<div class="itemSub" style="opacity:.95;">`;
 
-  // Vi viser hendelsene i kronologisk rekkefølge (eldst først)
-  const sorted = [...events].reverse();
+  // Hendelser fra ulike versjoner av kampføringen kan være lagret i
+  // forskjellig rekkefølge. Sorter på faktisk registreringstid i stedet
+  // for å anta at hele listen alltid er lagret nyeste først.
+  const sorted = events
+    .map((event, index) => ({ event, index }))
+    .sort((a, b) => {
+      const periodDifference = getOverviewEventPeriod(a.event) - getOverviewEventPeriod(b.event);
+      if (periodDifference !== 0) return periodDifference;
+
+      const aTime = getEventClockTime(a.event, match);
+      const bTime = getEventClockTime(b.event, match);
+
+      if (aTime !== null && bTime !== null && aTime !== bTime) {
+        return aTime - bTime;
+      }
+
+      // Eldre hendelser uten tidspunkt ligger normalt nyeste først.
+      return b.index - a.index;
+    })
+    .map(entry => entry.event);
 
   sorted.forEach(e => {
     html += `
       <div style="margin-bottom:6px;">
-        ${escapeHtml(e.text || "")}
+        ${escapeHtml(getOverviewEventDisplayText(e))}
       </div>
     `;
   });
@@ -1301,6 +1401,73 @@ function renderMatchDetails(match) {
   html += `</div>`;
 
   return html;
+}
+
+function getOverviewEventDisplayText(event) {
+  const rawText = String(event?.rawText || event?.text || "Hendelse")
+    .replace(/^\s*\d{1,2}:\d{2}\s*[–-]\s*/, "");
+  const isMatchMilestone =
+    /kamp(?:en)? startet|pause|1\. omgang avsluttet|2\. omgang startet|kamp avsluttet/i
+      .test(rawText);
+
+  if (!isMatchMilestone) return rawText;
+
+  const clock = event?.createdClock ||
+    String(event?.text || "").match(/^\s*(\d{1,2}:\d{2})/)?.[1];
+  return clock ? `${clock} – ${rawText}` : rawText;
+}
+
+function getOverviewEventPeriod(event) {
+  if (Number.isFinite(event?.period)) return event.period;
+  const text = String(event?.rawText || event?.text || "");
+  if (/kamp avsluttet/i.test(text)) return 3;
+  if (/2\. omgang/i.test(text)) return 2;
+  return 1;
+}
+
+function getEventClockTime(event, matchData = {}) {
+  if (Number.isFinite(event?.timeMs)) {
+    return event.timeMs;
+  }
+
+  const minuteText = String(event?.minute || "").trim();
+  const minuteMatch = minuteText.match(/^(\d{1,3})(?:\s*\+\s*(\d{1,2}))?$/);
+  if (minuteMatch) {
+    return (Number(minuteMatch[1]) + Number(minuteMatch[2] || 0)) * 60 * 1000;
+  }
+
+  const rawText = String(event?.rawText || event?.text || "");
+  const rawMinuteMatch = rawText.match(
+    /(?:^|\s)(\d{1,3})(?:\s*\+\s*(\d{1,2}))?\s*[–-]/u
+  );
+  if (rawMinuteMatch) {
+    return (Number(rawMinuteMatch[1]) + Number(rawMinuteMatch[2] || 0)) * 60 * 1000;
+  }
+
+  const halfMinutes = Number(matchData?.meta?.halfLengthMin) || 35;
+  if (/kamp(?:en)? startet/i.test(rawText)) return 0;
+  if (/pause|2\. omgang startet/i.test(rawText)) return halfMinutes * 60 * 1000;
+  if (/kamp avsluttet/i.test(rawText)) return halfMinutes * 2 * 60 * 1000;
+
+  const clockText = String(
+    event?.createdClock || event?.text || ""
+  );
+  const clockMatch = clockText.match(/(?:^|\s)(\d{1,2}):(\d{2})(?=\s|$)/);
+  if (clockMatch) {
+    return (Number(clockMatch[1]) * 60 + Number(clockMatch[2])) * 60 * 1000;
+  }
+
+  const reportedAt = new Date(event?.reportedAt || "");
+  if (!Number.isNaN(reportedAt.getTime())) {
+    return (
+      reportedAt.getHours() * 60 * 60 * 1000 +
+      reportedAt.getMinutes() * 60 * 1000 +
+      reportedAt.getSeconds() * 1000 +
+      reportedAt.getMilliseconds()
+    );
+  }
+
+  return null;
 }
 
 async function showPlayedMatchDetails(matchId, clickedDiv) {
@@ -1326,6 +1493,8 @@ async function showPlayedMatchDetails(matchId, clickedDiv) {
     if (!snap.exists()) return;
 
     const match = snap.data();
+    const canRepairLeander = findLeanderGoalRepairEvent(match) !== null;
+    const canRepairBjargDuration = findBjargDurationRepair(match);
 
     const detailsDiv = document.createElement("div");
     detailsDiv.className = "item matchDetailsBlock";
@@ -1337,14 +1506,317 @@ async function showPlayedMatchDetails(matchId, clickedDiv) {
         ${placeLabelFromVenue(match.meta?.venue)} ·
         ${match.score?.our ?? 0}–${match.score?.their ?? 0}
       </div>
-      ${renderMatchDetails(match)}
+      <div class="matchEventDetails">${renderMatchDetails(match)}</div>
+      ${canRepairLeander ? `
+        <button class="statsSelect repairLeanderBtn" style="width:100%; margin-top:10px;">
+          Rett mål og spilletid for Leander
+        </button>
+        <div class="itemSub repairLeanderStatus" style="margin-top:8px;"></div>
+      ` : ""}
+      ${canRepairBjargDuration ? `
+        <button class="statsSelect repairBjargDurationBtn" style="width:100%; margin-top:10px;">
+          Rett sluttid til 70 + 3
+        </button>
+        <div class="itemSub repairBjargDurationStatus" style="margin-top:8px;"></div>
+      ` : ""}
     `;
 
     clickedDiv.after(detailsDiv);
 
+    const repairBtn = detailsDiv.querySelector(".repairLeanderBtn");
+    if (repairBtn) {
+      repairBtn.addEventListener("click", async () => {
+        const confirmed = confirm(
+          "Dette flytter målet i 48. minutt fra Snorre til Leander, " +
+          "gir Leander 25 minutter og trekker 25 minutter fra Lukas. Fortsette?"
+        );
+        if (!confirmed) return;
+
+        const status = detailsDiv.querySelector(".repairLeanderStatus");
+        repairBtn.disabled = true;
+        status.textContent = "Retter kampdata…";
+
+        try {
+          await repairLeanderGoalAndPlayingTime(matchId);
+          status.textContent = "Rettet: Leander har fått målet og 25 minutter.";
+          repairBtn.remove();
+
+          const updatedSnap = await getDoc(doc(db, "matches", matchId));
+          if (updatedSnap.exists()) {
+            const details = detailsDiv.querySelector(".matchEventDetails");
+            if (details) details.innerHTML = renderMatchDetails(updatedSnap.data());
+          }
+        } catch (error) {
+          console.error(error);
+          status.textContent = `Kunne ikke rette kampen: ${error.message}`;
+          repairBtn.disabled = false;
+        }
+      });
+    }
+
+    const durationBtn = detailsDiv.querySelector(".repairBjargDurationBtn");
+    if (durationBtn) {
+      durationBtn.addEventListener("click", async () => {
+        const confirmed = confirm(
+          "Dette setter Bjarg 4-kampen til 73 minutter og beregner " +
+          "spillertiden på nytt. Fortsette?"
+        );
+        if (!confirmed) return;
+
+        const status = detailsDiv.querySelector(".repairBjargDurationStatus");
+        durationBtn.disabled = true;
+        status.textContent = "Retter sluttid og spilletid…";
+
+        try {
+          await repairEndedMatchDuration(matchId, 73, "70 + 3");
+          status.textContent = "Rettet: kampen og spillertiden er avgrenset til 70 + 3.";
+          durationBtn.remove();
+
+          const updatedSnap = await getDoc(doc(db, "matches", matchId));
+          if (updatedSnap.exists()) {
+            const details = detailsDiv.querySelector(".matchEventDetails");
+            if (details) details.innerHTML = renderMatchDetails(updatedSnap.data());
+          }
+        } catch (error) {
+          console.error(error);
+          status.textContent = `Kunne ikke rette kampen: ${error.message}`;
+          durationBtn.disabled = false;
+        }
+      });
+    }
+
   } catch (e) {
     console.error(e);
   }
+}
+
+function findBjargDurationRepair(match) {
+  return (
+    match?.meta?.date === "2026-06-18" &&
+    normalizePlayerName(match?.meta?.opponent) === "bjarg 4" &&
+    Number(match?.score?.our) === 1 &&
+    Number(match?.score?.their) === 3 &&
+    Number(match?.durationRepair?.finalMinutes) !== 73
+  );
+}
+
+function clampPlayerIntervals(intervals, finalTimeMs) {
+  return (Array.isArray(intervals) ? intervals : [])
+    .map(interval => ({
+      ...interval,
+      in: Math.max(0, Number(interval?.in) || 0),
+      out: Math.min(
+        interval?.out == null ? finalTimeMs : Number(interval.out),
+        finalTimeMs
+      )
+    }))
+    .filter(interval => interval.in < finalTimeMs && interval.out > interval.in);
+}
+
+function calculateMergedIntervalMinutes(intervals) {
+  const sorted = [...intervals].sort((a, b) => a.in - b.in);
+  const merged = [];
+
+  sorted.forEach(interval => {
+    const last = merged.at(-1);
+    if (!last || interval.in > last.out) {
+      merged.push({ in: interval.in, out: interval.out });
+    } else {
+      last.out = Math.max(last.out, interval.out);
+    }
+  });
+
+  const totalMs = merged.reduce(
+    (sum, interval) => sum + interval.out - interval.in,
+    0
+  );
+  return Math.floor(totalMs / 60000);
+}
+
+async function repairEndedMatchDuration(matchId, finalMinutes, minuteLabel) {
+  const matchRef = doc(db, "matches", matchId);
+  const snap = await getDoc(matchRef);
+  if (!snap.exists()) throw new Error("Kampen finnes ikke lenger.");
+
+  const match = snap.data();
+  if (!findBjargDurationRepair(match)) {
+    throw new Error("Kampen matcher ikke Bjarg 4-kampen som skal rettes.");
+  }
+
+  const finalTimeMs = finalMinutes * 60 * 1000;
+  const players = {};
+
+  Object.entries(match.players || {}).forEach(([id, player]) => {
+    players[id] = {
+      ...player,
+      intervals: clampPlayerIntervals(player?.intervals, finalTimeMs)
+    };
+  });
+
+  const playerValues = Object.values(players);
+  const playingTime = (Array.isArray(match.playingTime) ? match.playingTime : [])
+    .map(player => {
+      const storedPlayer = players[player.id] || playerValues.find(candidate =>
+        normalizePlayerName(candidate?.name) === normalizePlayerName(player?.name)
+      );
+      const intervals = storedPlayer?.intervals || [];
+      const minutes = intervals.length > 0
+        ? calculateMergedIntervalMinutes(intervals)
+        : Math.min(Number(player.minutes || 0), finalMinutes);
+
+      return { ...player, minutes };
+    });
+
+  const events = (Array.isArray(match.events) ? match.events : [])
+    .map(event => ({ ...event }));
+  const endEvent = events.find(event =>
+    String(event?.rawText || event?.text || "").includes("Kamp avsluttet")
+  );
+  const priorEvents = events.filter(event => event !== endEvent);
+  const lastPriorEvent = priorEvents
+    .map(event => ({ event, time: getEventClockTime(event) }))
+    .filter(entry => entry.time !== null)
+    .sort((a, b) => b.time - a.time)[0]?.event;
+
+  if (endEvent) {
+    const clock = lastPriorEvent?.createdClock ||
+      String(lastPriorEvent?.text || "").match(/^(\d{1,2}:\d{2})/)?.[1] ||
+      endEvent.createdClock;
+    const rawText = `🏁 Kamp avsluttet (${minuteLabel} min)`;
+    endEvent.rawText = rawText;
+    endEvent.createdClock = clock;
+    endEvent.text = clock ? `${clock} – ${rawText}` : rawText;
+    endEvent.edited = true;
+    endEvent.editedAt = new Date().toISOString();
+  }
+
+  await updateDoc(matchRef, {
+    players,
+    playingTime,
+    events,
+    "timer.elapsedMs": finalTimeMs,
+    "timer.startTimestamp": null,
+    durationRepair: {
+      finalMinutes,
+      appliedAt: serverTimestamp()
+    }
+  });
+}
+
+function normalizePlayerName(name) {
+  return String(name || "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("no");
+}
+
+function eventMinuteNumber(event) {
+  const minute = String(event?.minute || event?.rawText || event?.text || "");
+  const match = minute.match(/(?:^|[^0-9])(\d{1,3})(?:\s*\+\s*\d+)?(?:[^0-9]|$)/);
+  return match ? Number(match[1]) : null;
+}
+
+function findLeanderGoalRepairEvent(match) {
+  if (
+    match?.meta?.date !== "2026-04-19" ||
+    Number(match?.score?.our) !== 5 ||
+    Number(match?.score?.their) !== 2
+  ) {
+    return null;
+  }
+
+  const events = Array.isArray(match?.events) ? match.events : [];
+  const index = events.findIndex(event =>
+    event?.type === "goal" &&
+    event?.team === "home" &&
+    normalizePlayerName(event?.playerName) === "snorre" &&
+    eventMinuteNumber(event) === 48
+  );
+
+  return index >= 0 ? { index, event: events[index] } : null;
+}
+
+async function repairLeanderGoalAndPlayingTime(matchId) {
+  const matchRef = doc(db, "matches", matchId);
+  const snap = await getDoc(matchRef);
+  if (!snap.exists()) throw new Error("Kampen finnes ikke lenger.");
+
+  const match = snap.data();
+  const target = findLeanderGoalRepairEvent(match);
+  if (!target) {
+    throw new Error("Fant ikke Snorre-målet i 48. minutt. Ingen data ble endret.");
+  }
+
+  const playingTime = Array.isArray(match.playingTime)
+    ? match.playingTime.map(player => ({ ...player }))
+    : [];
+  const lukas = playingTime.find(player => normalizePlayerName(player.name) === "lukas");
+  const existingLeander = playingTime.find(
+    player => normalizePlayerName(player.name) === "leander"
+  );
+
+  if (!lukas || Number(lukas.minutes || 0) < 25) {
+    throw new Error("Lukas har ikke minst 25 registrerte minutter. Ingen data ble endret.");
+  }
+  if (existingLeander) {
+    throw new Error("Leander finnes allerede i denne kampens spilletid. Ingen data ble endret.");
+  }
+
+  const players = { ...(match.players || {}) };
+  const existingPlayerEntry = Object.entries(players).find(
+    ([, player]) => normalizePlayerName(player?.name) === "leander"
+  );
+  const leanderId = existingPlayerEntry?.[0] || `loan_leander_${matchId}`;
+
+  players[leanderId] = {
+    ...(existingPlayerEntry?.[1] || {}),
+    id: leanderId,
+    name: "Leander",
+    isLoan: true,
+    present: true,
+    starter: existingPlayerEntry?.[1]?.starter === true,
+    intervals: Array.isArray(existingPlayerEntry?.[1]?.intervals)
+      ? existingPlayerEntry[1].intervals
+      : [],
+    cards: Array.isArray(existingPlayerEntry?.[1]?.cards)
+      ? existingPlayerEntry[1].cards
+      : []
+  };
+
+  lukas.minutes = Number(lukas.minutes || 0) - 25;
+  playingTime.push({
+    id: leanderId,
+    name: "Leander",
+    minutes: 25,
+    cards: []
+  });
+
+  const events = match.events.map(event => ({ ...event }));
+  const event = events[target.index];
+  const rawText = `⚽ ${event.minute || "48"} – Leander (${match.meta?.ourTeam || "Samnanger"})`;
+  const clock = event.createdClock || String(event.text || "").match(/^(\d{1,2}:\d{2})/)?.[1];
+
+  events[target.index] = {
+    ...event,
+    playerId: leanderId,
+    playerName: "Leander",
+    rawText,
+    text: clock ? `${clock} – ${rawText}` : rawText,
+    edited: true,
+    editedAt: new Date().toISOString()
+  };
+
+  await updateDoc(matchRef, {
+    players,
+    playingTime,
+    events,
+    leanderRepair: {
+      appliedAt: serverTimestamp(),
+      minutesMovedFromLukas: 25,
+      goalMinute: 48
+    }
+  });
 }
 
 function openEditUpcomingMatch(match) {

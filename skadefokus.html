@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skadefokus</title>
+  <link rel="stylesheet" href="skadefokus.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- START -->
+    <section id="start" class="active">
+      <h1>SKADEFOKUS</h1>
+      <p class="subtitle">Kom tilbake etter hamstring + unngå nye skader</p>
+
+      <button class="menu" data-mode="return">🔁 Tilbake til 100%</button>
+      <button class="menu" data-mode="prevent">🛡️ Unngå skade</button>
+      <button class="menu" data-mode="calf">⚡ Unngå leggkrampe</button>
+
+      <div class="info">
+        Hvis du halter eller har vondt når du løper → ikke spill kamp.
+      </div>
+    </section>
+
+    <!-- ØKT -->
+    <section id="workout">
+      <button id="back">←</button>
+
+      <h2 id="title"></h2>
+      <p id="intro"></p>
+
+      <div id="card">
+        <h3 id="stepTitle"></h3>
+        <p id="stepDesc"></p>
+
+        <div class="meta">
+          <span id="dose"></span>
+        </div>
+      </div>
+
+      <p class="tip" id="tip"></p>
+
+      <div class="nav">
+        <button id="prev">Forrige</button>
+        <button id="next">Neste</button>
+      </div>
+
+      <div id="progress"></div>
+    </section>
+
+  </div>
+
+  <script src="skadefokus.js"></script>
+</body>
+</html>

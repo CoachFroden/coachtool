@@ -8,6 +8,7 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  updateDoc,
   serverTimestamp,
   query,
   where,
@@ -36,18 +37,45 @@ const auth = getAuth();
 
 const db = getFirestore();
 
+const saveStatusElement = document.getElementById("saveStatus");
+let saveStatusVersion = 0;
+
+function beginSaveStatus() {
+  const version = ++saveStatusVersion;
+  saveStatusElement.textContent = "Lagrer …";
+  saveStatusElement.className = "save-status saving";
+  return version;
+}
+
+function finishSaveStatus(version, succeeded) {
+  // Et eldre lagringskall skal ikke overskrive statusen til et nyere kall.
+  if (version !== saveStatusVersion) return;
+
+  saveStatusElement.textContent = succeeded
+    ? "✓ Lagret"
+    : "Kunne ikke lagre – prøv igjen";
+  saveStatusElement.className = succeeded
+    ? "save-status saved"
+    : "save-status error";
+}
+
 async function safeSetDoc(ref, data, options = {}) {
+  const saveVersion = beginSaveStatus();
+
   try {
     if (!ref) {
       console.warn("❌ Mangler docRef – lagring hoppet over");
+      finishSaveStatus(saveVersion, false);
       return false;
     }
 
     await setDoc(ref, data, options);
+    finishSaveStatus(saveVersion, true);
     return true;
 
   } catch (error) {
     console.error("🔥 Firestore setDoc feil:", error);
+    finishSaveStatus(saveVersion, false);
     alert("Noe gikk galt ved lagring. Prøv igjen.");
     return false;
   }
@@ -120,6 +148,8 @@ const matchState = {
   status: "NOT_STARTED",
   period: 1,
   lineupConfirmed: false,
+  halftimeStartedAt: null,
+  firstHalfActualEndMs: null,
 
  timer: {
   elapsedMs: 0,
@@ -156,6 +186,7 @@ function createPlayer({ id, name }) {
     present: true,
     starter: false,
     intervals: [],
+    extraPlayingTimeMs: 0,
     cards: []
   };
 }
@@ -192,6 +223,20 @@ const HOME_SQUAD = [
  // { id: "h25", name: "Lånespiller 7" }
 ];
 
+const DEFAULT_451_LINEUP = [
+  { id: "h15", name: "Thage", x: 50, y: 93 },
+  { id: "h3", name: "Gabriel", x: 15, y: 75 },
+  { id: "h1", name: "Ask", x: 38, y: 80 },
+  { id: "h7", name: "Martin", x: 62, y: 80 },
+  { id: "h2", name: "Brage", x: 85, y: 75 },
+  { id: "h5", name: "Liam", x: 12, y: 48 },
+  { id: "h4", name: "Lars", x: 31, y: 54 },
+  { id: "h8", name: "Nicolai", x: 50, y: 58 },
+  { id: "h12", name: "Snorre", x: 69, y: 54 },
+  { id: "h6", name: "Lukas", x: 88, y: 48 },
+  { id: "h10", name: "Noah", x: 50, y: 22 }
+];
+
   const MAX_STARTERS = 11;
   
   function requireLineupConfirmed() {
@@ -212,11 +257,221 @@ const matchTypeInput = document.getElementById("matchType");
 
 const startBtn = document.getElementById("startBtn");
 const pauseBtn = document.getElementById("pauseBtn");
+const halfTimeBtn = document.getElementById("halfTimeBtn");
 const resumeBtn = document.getElementById("resumeBtn");
 const endBtn = document.getElementById("endBtn");
 
 const eventList = document.getElementById("eventList");
 const periodIndicator = document.getElementById("period-indicator");
+
+const matchReminder = document.getElementById("matchReminder");
+const matchReminderText = document.getElementById("matchReminderText");
+const dismissReminderBtn = document.getElementById("dismissReminderBtn");
+const HALFTIME_REMINDER_MS = 10 * 60 * 1000;
+const REMINDER_REPEAT_MS = 60 * 1000;
+
+let activeReminderKey = null;
+let lastReminderAt = 0;
+
+function clearMatchReminder() {
+  matchReminder.classList.add("hidden");
+  document.querySelectorAll(".reminder-pulse").forEach(element => {
+    element.classList.remove("reminder-pulse");
+  });
+  document.title = "Kampregistrering";
+}
+
+function showOverviewReturnMode() {
+  clearMatchReminder();
+  document.body.classList.add("overview-return-mode");
+  startScreen.style.display = "block";
+}
+
+function getEventMatchTimeMs(event) {
+  if (Number.isFinite(event?.timeMs)) {
+    return event.timeMs;
+  }
+
+  const minuteText = String(event?.minute || "").trim();
+  const minuteMatch = minuteText.match(/^(\d{1,3})(?:\s*\+\s*(\d{1,2}))?$/);
+  if (minuteMatch) {
+    return (Number(minuteMatch[1]) + Number(minuteMatch[2] || 0)) * 60 * 1000;
+  }
+
+  const rawText = String(event?.rawText || event?.text || "");
+  const rawMinuteMatch = rawText.match(
+    /(?:^|\s)(\d{1,3})(?:\s*\+\s*(\d{1,2}))?\s*[–-]/u
+  );
+  if (rawMinuteMatch) {
+    return (Number(rawMinuteMatch[1]) + Number(rawMinuteMatch[2] || 0)) * 60 * 1000;
+  }
+
+  if (/kamp(?:en)? startet/i.test(rawText)) return 0;
+  if (/pause|2\. omgang startet/i.test(rawText)) return getHalfLengthMs();
+
+  return null;
+}
+
+function getEventSortPeriod(event) {
+  if (Number.isFinite(event?.period)) return event.period;
+  const text = String(event?.rawText || event?.text || "");
+  if (/kamp avsluttet/i.test(text)) return 3;
+  if (/2\. omgang/i.test(text)) return 2;
+  return 1;
+}
+
+function getEventReportedTime(event) {
+  const clockText = String(event?.createdClock || event?.text || "");
+  const clockMatch = clockText.match(/(?:^|\s)(\d{1,2}):(\d{2})(?=\s|$)/);
+  if (clockMatch) {
+    return (Number(clockMatch[1]) * 60 + Number(clockMatch[2])) * 60 * 1000;
+  }
+
+  const reportedAt = new Date(event?.reportedAt || "");
+  if (Number.isNaN(reportedAt.getTime())) return null;
+
+  return (
+    reportedAt.getHours() * 60 * 60 * 1000 +
+    reportedAt.getMinutes() * 60 * 1000 +
+    reportedAt.getSeconds() * 1000 +
+    reportedAt.getMilliseconds()
+  );
+}
+
+function getEventDisplayText(event) {
+  const rawText = String(event?.rawText || event?.text || "Hendelse")
+    .replace(/^\s*\d{1,2}:\d{2}\s*[–-]\s*/, "");
+  const isMatchMilestone =
+    /kamp(?:en)? startet|pause|1\. omgang avsluttet|2\. omgang startet|kamp avsluttet/i
+      .test(rawText);
+
+  if (!isMatchMilestone) return rawText;
+
+  const clock = event?.createdClock ||
+    String(event?.text || "").match(/^\s*(\d{1,2}:\d{2})/)?.[1];
+  return clock ? `${clock} – ${rawText}` : rawText;
+}
+
+function renderFinalEventReview() {
+  const review = document.getElementById("finalEventReview");
+  const list = document.getElementById("finalEventList");
+  const count = document.getElementById("finalEventCount");
+  if (!review || !list || !count) return;
+
+  const events = (matchState.events || [])
+    .map((event, index) => ({ event, index }))
+    .sort((a, b) => {
+      const periodDifference = getEventSortPeriod(a.event) - getEventSortPeriod(b.event);
+      if (periodDifference !== 0) return periodDifference;
+
+      const aTime = getEventMatchTimeMs(a.event);
+      const bTime = getEventMatchTimeMs(b.event);
+      if (aTime !== null && bTime !== null && aTime !== bTime) {
+        return aTime - bTime;
+      }
+
+      const aReported = getEventReportedTime(a.event);
+      const bReported = getEventReportedTime(b.event);
+      if (aReported !== null && bReported !== null && aReported !== bReported) {
+        return aReported - bReported;
+      }
+      return b.index - a.index;
+    })
+    .map(entry => entry.event);
+
+  list.innerHTML = "";
+
+  events.forEach(event => {
+    const row = document.createElement("div");
+    row.className = "final-event-item";
+    row.textContent = getEventDisplayText(event);
+    list.appendChild(row);
+  });
+
+  count.textContent = `${events.length} hendelser`;
+  review.classList.toggle("hidden", events.length === 0);
+}
+
+function showMatchReminder(key, message, button) {
+  const now = Date.now();
+  const isNewReminder = activeReminderKey !== key;
+
+  if (!isNewReminder && now - lastReminderAt < REMINDER_REPEAT_MS) return;
+
+  clearMatchReminder();
+  activeReminderKey = key;
+  lastReminderAt = now;
+  matchReminderText.textContent = message;
+  matchReminder.classList.remove("hidden");
+  button?.classList.add("reminder-pulse");
+  document.title = `⚠️ ${message}`;
+
+  if (navigator.vibrate) {
+    navigator.vibrate([200, 120, 200]);
+  }
+}
+
+function getScheduledStartMs() {
+  const date = matchState.meta.date || dateInput.value;
+  const time = matchState.meta.startTime || timeInput.value;
+  if (!date || !time) return null;
+
+  const timestamp = new Date(`${date}T${time}`).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function checkMatchReminders() {
+  let reminder = null;
+
+  if (["NOT_STARTED", "UPCOMING"].includes(matchState.status)) {
+    const scheduledStartMs = getScheduledStartMs();
+    if (scheduledStartMs && Date.now() >= scheduledStartMs) {
+      reminder = {
+        key: "match-start",
+        message: "Kampen skulle ha startet – start klokken?",
+        button: startBtn
+      };
+    }
+  } else if (matchState.status === "LIVE" && matchState.period === 1) {
+    if (getCurrentMatchTimeMs() >= getHalfLengthMs()) {
+      reminder = {
+        key: "first-half-end",
+        message: "Tiden er ute – avslutt 1. omgang?",
+        button: halfTimeBtn
+      };
+    }
+  } else if (["HALFTIME", "PAUSED"].includes(matchState.status)) {
+    if (
+      matchState.halftimeStartedAt &&
+      Date.now() - matchState.halftimeStartedAt >= HALFTIME_REMINDER_MS
+    ) {
+      reminder = {
+        key: "second-half-start",
+        message: "Har 2. omgang startet?",
+        button: resumeBtn
+      };
+    }
+  } else if (matchState.status === "LIVE" && matchState.period === 2) {
+    if (getCurrentMatchTimeMs() >= getHalfLengthMs() * 2) {
+      reminder = {
+        key: "match-end",
+        message: "Tiden er ute – avslutt kampen?",
+        button: endBtn
+      };
+    }
+  }
+
+  if (reminder) {
+    showMatchReminder(reminder.key, reminder.message, reminder.button);
+    return;
+  }
+
+  activeReminderKey = null;
+  clearMatchReminder();
+}
+
+dismissReminderBtn.addEventListener("click", clearMatchReminder);
+setInterval(checkMatchReminders, 1000);
 
 const ourGoalBtn = document.getElementById("ourGoalBtn");
 const theirGoalBtn = document.getElementById("theirGoalBtn");
@@ -225,6 +480,12 @@ const goalModal = document.getElementById("goalModal");
 const confirmGoalBtn = document.getElementById("confirmGoalBtn");
 const cancelGoalBtn = document.getElementById("cancelGoalBtn");
 const manualGoalTimeInput = document.getElementById("manualGoalTime");
+const manualGoalTimeWrapper = document.getElementById("manualGoalTimeWrapper");
+const toggleManualGoalTimeBtn = document.getElementById("toggleManualGoalTimeBtn");
+const goalTimeSummary = document.getElementById("goalTimeSummary");
+const goalModalTitle = document.getElementById("goalModalTitle");
+const goalModalHelp = document.getElementById("goalModalHelp");
+const goalScorerGrid = document.getElementById("goalScorerGrid");
 
 const homeScorerWrapper = document.getElementById("homeScorerWrapper");
 
@@ -242,6 +503,7 @@ const matchUI = document.getElementById("matchUI");
 const eventLog = document.getElementById("event-log");
 const teams = document.querySelector(".teams");
   const clockSection = document.getElementById("clock-section");
+const goalActions = document.getElementById("goal-actions");
 const actionCard = document.getElementById("action-card"); 
   
   const loanBtn = document.getElementById("loanPlayersBtn");
@@ -297,6 +559,7 @@ matchState.players.home[id] = createPlayer({ id, name });
 
 function populateGoalScorers(team) {
   goalScorerSelect.innerHTML = "";
+  goalScorerGrid.innerHTML = "";
 
   const placeholder = document.createElement("option");
   placeholder.value = "";
@@ -305,15 +568,21 @@ function populateGoalScorers(team) {
 
   if (team !== "home") return;
 
-  const onField = matchState.squad.onField.home;
-
   Object.values(matchState.players.home)
     .filter(p => p && p.id && isOnField(p.id))
+    .sort((a, b) => a.name.localeCompare(b.name, "nb"))
     .forEach(player => {
       const opt = document.createElement("option");
       opt.value = player.id;
       opt.textContent = player.name;
       goalScorerSelect.appendChild(opt);
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "goal-scorer-option";
+      button.textContent = player.name;
+      button.addEventListener("click", () => registerPendingGoal({ id: player.id }));
+      goalScorerGrid.appendChild(button);
     });
 }
 
@@ -364,7 +633,7 @@ async function findLiveMatch() {
     query(
       collection(db, "matches"),
       where("ownerUid", "==", user.uid),
-      where("status", "in", ["LIVE", "PAUSED"])
+      where("status", "in", ["LIVE", "PAUSED", "TEMP_STOPPED", "HALFTIME"])
     )
   );
 
@@ -376,7 +645,7 @@ async function findLiveMatch() {
   const assistantSnap = await getDocs(
     query(
       collection(db, "assistantMatches", user.uid, "matches"),
-      where("status", "in", ["LIVE", "PAUSED"])
+      where("status", "in", ["LIVE", "PAUSED", "TEMP_STOPPED", "HALFTIME"])
     )
   );
 
@@ -406,10 +675,22 @@ function updateScoreboard() {
     matchState.score.their;
 }
 
+function updateGoalButtonLabels() {
+  const homeName = matchState.meta.ourTeam || homeTeamInput.value.trim() || "Samnanger";
+  const awayName = matchState.meta.opponent || awayTeamInput.value.trim() || "Motstander";
+
+  document.querySelector('.goalBtn[data-team="home"] .goal-team-name').textContent = homeName;
+  document.querySelector('.goalBtn[data-team="away"] .goal-team-name').textContent = awayName;
+  document.getElementById("scoreHomeName").textContent = homeName;
+  document.getElementById("scoreAwayName").textContent = awayName;
+}
+
 function registerGoal(team, timeMs, scorerData) {
   if (matchState.status !== "LIVE") return;
 
   const minuteText = formatMatchMinute(timeMs);
+  const ourTeamName = matchState.meta.ourTeam || homeTeamInput.value.trim() || "Samnanger";
+  const opponentName = matchState.meta.opponent || awayTeamInput.value.trim() || "Motstander";
 
 if (team === "home") {
   addOurGoal();
@@ -422,8 +703,10 @@ addEvent({
   team: "home",
   playerId: player.id,
   playerName: player.name,
+  period: matchState.period,
+  timeMs,
   minute: minuteText,
-  text: `⚽ ${minuteText} – ${player.name} (${matchState.meta.ourTeam})`
+  text: `⚽ ${minuteText} – ${player.name} (${ourTeamName})`
 });
 
 }
@@ -440,8 +723,10 @@ addEvent({
   team: "away",
   playerId: scorerData.id ?? null,
   playerName: label,
+  period: matchState.period,
+  timeMs,
   minute: minuteText,
-  text: `⚽ ${minuteText} – ${label} (${matchState.meta.opponent})`
+  text: `⚽ ${minuteText} – ${label} (${opponentName})`
 });
 
   }
@@ -503,6 +788,7 @@ function updateControls() {
   // Skjul hovedknapper
   startBtn.style.display = "none";
   pauseBtn.style.display = "none";
+  halfTimeBtn.style.display = "none";
   resumeBtn.style.display = "none";
   endBtn.style.display = "none";
 
@@ -513,12 +799,22 @@ if (
   startBtn.style.display = "block";
 }
 
-  if (matchState.status === "LIVE" && matchState.period === 1) {
+  if (matchState.status === "LIVE") {
     pauseBtn.style.display = "block";
   }
 
-  if (matchState.status === "PAUSED") {
+  if (
+    matchState.period === 1 &&
+    ["LIVE", "TEMP_STOPPED"].includes(matchState.status)
+  ) {
+    halfTimeBtn.style.display = "block";
+  }
+
+  if (["TEMP_STOPPED", "HALFTIME", "PAUSED"].includes(matchState.status)) {
     resumeBtn.style.display = "block";
+    resumeBtn.textContent = matchState.status === "TEMP_STOPPED"
+      ? "Fortsett kampen"
+      : "Start 2. omgang";
   }
 
   if (matchState.status === "LIVE" && matchState.period === 2) {
@@ -533,8 +829,14 @@ if (
 
 // 👇 LEGG DETTE HER
 if (matchState.status === "ENDED") {
+  showOverviewReturnMode();
+  renderFinalEventReview();
   matchControls.style.display = "none";
-  newMatchBtn.classList.remove("hidden");
+  newMatchBtn.classList.add("hidden");
+  document.getElementById("match-header").style.display = "none";
+  document.getElementById("backBtn")?.classList.add("hidden");
+  matchUI.classList.add("hidden");
+  startScreen.style.display = "block";
 } else {
   matchControls.style.display = "block";
   newMatchBtn.classList.add("hidden");
@@ -555,6 +857,7 @@ function updateUIByStatus() {
     matchUI.classList.remove("hidden");
 	teams.style.display = "flex";
     actionCard.style.display = "none";
+    goalActions.style.display = "none";
     clockSection.style.display = "none";
     matchControls.style.display = "block";
    // events.style.display = "none";
@@ -562,7 +865,7 @@ function updateUIByStatus() {
     eventLog.style.display = "none";
   }
 
-  if (matchState.status === "LIVE" || matchState.status === "PAUSED") {
+  if (["LIVE", "TEMP_STOPPED", "HALFTIME", "PAUSED"].includes(matchState.status)) {
     preMatch.classList.add("hidden");
     matchUI.classList.remove("hidden");
 	teams.style.display = "flex";
@@ -570,7 +873,12 @@ function updateUIByStatus() {
     clockSection.style.display = "block";
     matchControls.style.display = "block";
     actionCard.style.display = "block";
-    eventLog.style.display = "block";
+    goalActions.style.display = matchState.status === "LIVE" ? "block" : "none";
+    const quickActions = actionCard.querySelector(".action-row");
+    if (quickActions) {
+      quickActions.style.display = matchState.status === "LIVE" ? "grid" : "none";
+    }
+    eventLog.style.display = "";
   }
 }
 
@@ -672,6 +980,7 @@ function sanitizePlayers() {
 
 function syncUI() {
   updateScoreboard();
+  updateGoalButtonLabels();
   renderEvents();
   updateControls();
   updateUIByStatus();
@@ -708,6 +1017,10 @@ function addEvent(event) {
     text: `${timestamp} – ${rawText}`,
     createdClock: timestamp,
     reportedAt: new Date().toISOString(),
+    timeMs: Number.isFinite(baseEvent.timeMs)
+      ? baseEvent.timeMs
+      : getCurrentMatchTimeMs(),
+    period: baseEvent.period || matchState.period,
     edited: false,
     ...(user ? { reportedBy: user.uid } : {})
   };
@@ -717,8 +1030,7 @@ function addEvent(event) {
   renderEvents();
   saveLiveUpdate();
 
-  eventLog.classList.remove("hidden");
-  toggleEventsBtn.textContent = "Skjul hendelser";
+  return fullEvent;
 }
 
 function rebuildEventText(event) {
@@ -729,6 +1041,21 @@ function rebuildEventText(event) {
 function editEvent(eventId) {
   const event = matchState.events.find(e => e.id === eventId);
   if (!event) return;
+
+  if (/1\. omgang avsluttet/i.test(event.rawText || event.text || "")) {
+    openFirstHalfCorrectionModal(event);
+    return;
+  }
+
+  if (event.type === "goal") {
+    openEditGoalModal(event);
+    return;
+  }
+
+  if (event.type === "substitution") {
+    openEditSubTimeModal(event);
+    return;
+  }
 
   const updatedText = prompt("Rediger hendelse:", event.rawText || "");
   if (updatedText === null) return;
@@ -748,16 +1075,345 @@ function editEvent(eventId) {
   saveLiveUpdate();
 }
 
+let editingGoalEventId = null;
+
+function openEditGoalModal(event) {
+  editingGoalEventId = event.id;
+
+  const minuteInput = document.getElementById("editGoalMinute");
+  const scorerSelect = document.getElementById("editGoalScorer");
+  const opponentInput = document.getElementById("editOpponentScorer");
+  const homeWrapper = document.getElementById("editHomeScorerWrapper");
+  const awayWrapper = document.getElementById("editAwayScorerWrapper");
+
+  minuteInput.value = event.minute || "";
+  homeWrapper.classList.toggle("hidden", event.team !== "home");
+  awayWrapper.classList.toggle("hidden", event.team !== "away");
+
+  if (event.team === "home") {
+    scorerSelect.innerHTML = "";
+
+    Object.values(matchState.players.home)
+      .filter(player =>
+        player?.id &&
+        player?.name &&
+        (player.present || player.id === event.playerId)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, "no"))
+      .forEach(player => {
+        const option = document.createElement("option");
+        option.value = player.id;
+        option.textContent = player.name;
+        option.selected = player.id === event.playerId;
+        scorerSelect.appendChild(option);
+      });
+  } else {
+    opponentInput.value =
+      event.playerName === "Ukjent spiller" ? "" : event.playerName || "";
+  }
+
+  document.getElementById("editGoalModal").classList.remove("hidden");
+}
+
+function closeEditGoalModal() {
+  editingGoalEventId = null;
+  document.getElementById("editGoalModal").classList.add("hidden");
+}
+
+document.getElementById("cancelEditGoalBtn")
+  .addEventListener("click", closeEditGoalModal);
+
+document.getElementById("saveEditGoalBtn").addEventListener("click", () => {
+  const event = matchState.events.find(item => item.id === editingGoalEventId);
+  if (!event || event.type !== "goal") return;
+
+  const minuteValue = document.getElementById("editGoalMinute").value.trim();
+  const minuteMatch = minuteValue.match(/^(\d{1,3})(?:\s*\+\s*(\d{1,2}))?$/);
+
+  if (!minuteMatch) {
+    alert("Skriv inn kampminutt, for eksempel 12 eller 35 + 2");
+    return;
+  }
+
+  const baseMinute = Number(minuteMatch[1]);
+  const overtimeMinute = Number(minuteMatch[2] || 0);
+  const maxBaseMinute = (matchState.meta.halfLengthMin || 35) * 2;
+
+  if (baseMinute < 1 || baseMinute > maxBaseMinute) {
+    alert(`Kampminuttet må være mellom 1 og ${maxBaseMinute}, eventuelt med tilleggstid`);
+    return;
+  }
+
+  const normalizedMinute = overtimeMinute > 0
+    ? `${baseMinute} + ${overtimeMinute}`
+    : String(baseMinute);
+
+  let playerId = null;
+  let playerName = "Ukjent spiller";
+  let teamName = matchState.meta.opponent || awayTeamInput.value.trim() || "Motstander";
+
+  if (event.team === "home") {
+    playerId = document.getElementById("editGoalScorer").value;
+    const player = matchState.players.home[playerId];
+
+    if (!player) {
+      alert("Velg målscorer");
+      return;
+    }
+
+    playerName = player.name;
+    teamName = matchState.meta.ourTeam || homeTeamInput.value.trim() || "Samnanger";
+  } else {
+    playerName = document.getElementById("editOpponentScorer").value.trim()
+      || "Ukjent spiller";
+  }
+
+  event.playerId = playerId;
+  event.playerName = playerName;
+  event.minute = normalizedMinute;
+  event.timeMs = (baseMinute + overtimeMinute - 1) * 60 * 1000;
+  event.rawText = `⚽ ${normalizedMinute} – ${playerName} (${teamName})`;
+  event.text = rebuildEventText(event);
+  event.edited = true;
+  event.editedAt = new Date().toISOString();
+
+  renderEvents();
+  saveLiveUpdate();
+  closeEditGoalModal();
+});
+
+let editingSubEventId = null;
+
+function openEditSubTimeModal(event) {
+  editingSubEventId = event.id;
+  document.getElementById("editSubSummary").textContent =
+    `${event.outPlayerName} → ${event.inPlayerName}`;
+  document.getElementById("editSubMinute").value = event.minute || "";
+  document.getElementById("editSubTimeModal").classList.remove("hidden");
+}
+
+function closeEditSubTimeModal() {
+  editingSubEventId = null;
+  document.getElementById("editSubTimeModal").classList.add("hidden");
+}
+
+document.getElementById("cancelEditSubBtn")
+  .addEventListener("click", closeEditSubTimeModal);
+
+document.getElementById("saveEditSubBtn").addEventListener("click", () => {
+  const event = matchState.events.find(item => item.id === editingSubEventId);
+  if (!event || event.type !== "substitution") return;
+
+  const value = document.getElementById("editSubMinute").value.trim();
+  const minuteMatch = value.match(/^(\d{1,3})(?:\s*\+\s*(\d{1,2}))?$/);
+
+  if (!minuteMatch) {
+    alert("Skriv inn kampminutt, for eksempel 28 eller 70 + 2");
+    return;
+  }
+
+  const baseMinute = Number(minuteMatch[1]);
+  const overtimeMinute = Number(minuteMatch[2] || 0);
+  const enteredMinute = baseMinute + overtimeMinute;
+  const currentTimeMs = getCurrentMatchTimeMs();
+  const currentMinute = Math.max(1, Math.ceil(currentTimeMs / 60000));
+
+  if (baseMinute < 1 || enteredMinute > currentMinute) {
+    alert(`Byttet må være mellom kampminutt 1 og ${currentMinute}`);
+    return;
+  }
+
+  const newTimeMs = Math.min(enteredMinute * 60 * 1000, currentTimeMs);
+  const outPlayer = matchState.players.home[event.outPlayerId];
+  const inPlayer = matchState.players.home[event.inPlayerId];
+
+  if (!outPlayer || !inPlayer) {
+    alert("Kunne ikke finne spillerne i dette byttet");
+    return;
+  }
+
+  const outIntervalIndex = outPlayer.intervals.findIndex(
+    interval => interval.out === event.timeMs
+  );
+  const inIntervalIndex = inPlayer.intervals.findIndex(
+    interval => interval.in === event.timeMs
+  );
+
+  if (outIntervalIndex < 0 || inIntervalIndex < 0) {
+    alert("Kunne ikke finne spilleintervallene for dette byttet");
+    return;
+  }
+
+  const outInterval = outPlayer.intervals[outIntervalIndex];
+  const inInterval = inPlayer.intervals[inIntervalIndex];
+  const outNextInterval = outPlayer.intervals[outIntervalIndex + 1];
+  const inPreviousInterval = inPlayer.intervals[inIntervalIndex - 1];
+
+  if (
+    newTimeMs < outInterval.in ||
+    (outNextInterval && newTimeMs > outNextInterval.in) ||
+    (inPreviousInterval?.out != null && newTimeMs < inPreviousInterval.out) ||
+    (inInterval.out != null && newTimeMs > inInterval.out)
+  ) {
+    alert("Det valgte tidspunktet kolliderer med et annet spillerbytte");
+    return;
+  }
+
+  outInterval.out = newTimeMs;
+  inInterval.in = newTimeMs;
+
+  const normalizedMinute = overtimeMinute > 0
+    ? `${baseMinute} + ${overtimeMinute}`
+    : String(baseMinute);
+
+  event.timeMs = newTimeMs;
+  event.minute = normalizedMinute;
+  event.period = baseMinute <= getHalfLengthMs() / 60000 ? 1 : 2;
+  event.rawText =
+    `🔁 ${normalizedMinute} – ${outPlayer.name} ut, ${inPlayer.name} inn`;
+  event.text = rebuildEventText(event);
+  event.edited = true;
+  event.editedAt = new Date().toISOString();
+
+  renderEvents();
+  updatePlayingTimeUI();
+  saveLiveUpdate();
+  closeEditSubTimeModal();
+});
+
+function restorePlayerAfterDeletedRedCard(player, event) {
+  if (isOnField(player.id)) return true;
+
+  if (matchState.squad.onField.home.length >= MAX_STARTERS) {
+    alert("Kortet kan ikke slettes trygt fordi laget allerede har 11 spillere på banen");
+    return false;
+  }
+
+  const redTimeMs = event.timeMs;
+  const interval = [...player.intervals]
+    .reverse()
+    .find(item => item.out === redTimeMs);
+
+  if (!interval) {
+    alert("Kunne ikke finne spillerens intervall ved utvisningen");
+    return false;
+  }
+
+  const currentTimeMs = getCurrentMatchTimeMs();
+  const isRunningPeriod = ["LIVE", "TEMP_STOPPED"].includes(matchState.status);
+
+  if (event.period === 1 && matchState.period === 2) {
+    interval.out = getHalfLengthMs();
+    player.intervals.push({
+      in: getHalfLengthMs(),
+      out: isRunningPeriod ? null : currentTimeMs
+    });
+  } else {
+    interval.out = isRunningPeriod ? null : currentTimeMs;
+  }
+
+  addToField(player.id);
+  return true;
+}
+
 function deleteEvent(eventId) {
   if (!eventId) {
     alert("Kunne ikke slette: hendelsen mangler id");
     return;
   }
 
-  const ok = confirm("Vil du slette denne hendelsen?");
+  const event = matchState.events.find(item => item.id === eventId);
+  if (!event) {
+    alert("Kunne ikke finne hendelsen");
+    return;
+  }
+
+  const isLegacyCard =
+    event.type !== "card" &&
+    /^[🟨🟥]/u.test(event.rawText || "");
+
+  if (isLegacyCard) {
+    alert("Dette eldre kortet mangler dataene som kreves for trygg sletting");
+    return;
+  }
+
+  const confirmationText = event.type === "goal"
+    ? "Vil du slette dette målet? Resultatet blir også korrigert."
+    : event.type === "card"
+      ? "Vil du slette dette kortet? Spillerstatusen blir også korrigert."
+      : "Vil du slette denne hendelsen?";
+
+  const ok = confirm(confirmationText);
   if (!ok) return;
 
-  matchState.events = matchState.events.filter(e => e.id !== eventId);
+  if (event.type === "goal") {
+    if (event.team === "home") {
+      matchState.score.our = Math.max(0, matchState.score.our - 1);
+    } else if (event.team === "away") {
+      matchState.score.their = Math.max(0, matchState.score.their - 1);
+    } else {
+      alert("Målet mangler laginformasjon og kan ikke slettes trygt");
+      return;
+    }
+
+    updateScoreboard();
+  }
+
+  const eventIdsToDelete = new Set([eventId]);
+
+  if (event.type === "card" && event.team === "home") {
+    const player = matchState.players.home[event.playerId];
+    if (!player) {
+      alert("Kunne ikke finne spilleren som fikk kortet");
+      return;
+    }
+
+    const relatedRedCard = player.cards.find(card =>
+      card.type === "red" &&
+      card.derivedFromCardId &&
+      (event.cardType === "yellow" || card.derivedFromCardId === event.cardId)
+    );
+    const removesRedCard =
+      event.cardType === "red" || Boolean(relatedRedCard);
+
+    if (removesRedCard) {
+      const redEvent = event.cardType === "red"
+        ? event
+        : matchState.events.find(item => item.cardId === relatedRedCard.id);
+
+      if (!redEvent) {
+        return;
+      }
+
+      if (
+        redEvent.wasPlayerOnField !== false &&
+        !restorePlayerAfterDeletedRedCard(player, redEvent)
+      ) return;
+    }
+
+    const cardIdsToDelete = new Set([event.cardId]);
+
+    if (event.derivedFromCardId) {
+      cardIdsToDelete.add(event.derivedFromCardId);
+      const sourceEvent = matchState.events.find(
+        item => item.cardId === event.derivedFromCardId
+      );
+      if (sourceEvent) eventIdsToDelete.add(sourceEvent.id);
+    }
+
+    if (relatedRedCard) {
+      cardIdsToDelete.add(relatedRedCard.id);
+      const redEvent = matchState.events.find(
+        item => item.cardId === relatedRedCard.id
+      );
+      if (redEvent) eventIdsToDelete.add(redEvent.id);
+    }
+
+    player.cards = player.cards.filter(card => !cardIdsToDelete.has(card.id));
+    updatePlayingTimeUI();
+  }
+
+  matchState.events = matchState.events.filter(e => !eventIdsToDelete.has(e.id));
 
   renderEvents();
   saveLiveUpdate();
@@ -769,33 +1425,99 @@ function renderEvents() {
   const list = document.getElementById("eventList");
   list.innerHTML = "";
 
-  matchState.events.forEach(event => {
+  const sortedEvents = matchState.events
+    .map((event, index) => ({ event, index }))
+    .sort((a, b) => {
+      const periodDifference = getEventSortPeriod(b.event) - getEventSortPeriod(a.event);
+      if (periodDifference !== 0) return periodDifference;
+
+      const aTime = getEventMatchTimeMs(a.event);
+      const bTime = getEventMatchTimeMs(b.event);
+
+      if (aTime !== null && bTime !== null && aTime !== bTime) {
+        return bTime - aTime;
+      }
+
+      const aReported = getEventReportedTime(a.event);
+      const bReported = getEventReportedTime(b.event);
+      if (aReported !== null && bReported !== null && aReported !== bReported) {
+        return bReported - aReported;
+      }
+
+      return a.index - b.index;
+    })
+    .map(entry => entry.event);
+
+  sortedEvents.forEach(event => {
     const li = document.createElement("li");
-    li.className = "event-row";
+    const displayText = getEventDisplayText(event);
+    const isMilestone =
+      /kamp(?:en)? startet|pause|1\. omgang avsluttet|2\. omgang startet|kamp avsluttet/i
+        .test(displayText);
+    li.className = `event-row event-${event.type || "text"}${isMilestone ? " event-milestone" : ""}`;
+
+    const content = document.createElement("div");
+    content.className = "event-content";
 
     const textSpan = document.createElement("span");
     textSpan.className = "event-text";
-    textSpan.textContent = event.text + (event.edited ? " (redigert)" : "");
+    textSpan.textContent = displayText;
+    content.appendChild(textSpan);
+
+    if (event.edited) {
+      const editedBadge = document.createElement("span");
+      editedBadge.className = "event-edited-badge";
+      editedBadge.textContent = "redigert";
+      content.appendChild(editedBadge);
+    }
 
     const actions = document.createElement("div");
     actions.className = "event-actions";
+
+    const menuToggle = document.createElement("button");
+    menuToggle.type = "button";
+    menuToggle.className = "event-menu-toggle";
+    menuToggle.textContent = "•••";
+    menuToggle.setAttribute("aria-label", "Handlinger for hendelsen");
+    menuToggle.setAttribute("aria-expanded", "false");
+
+    const menu = document.createElement("div");
+    menu.className = "event-action-menu hidden";
+
+    menuToggle.addEventListener("click", clickEvent => {
+      clickEvent.stopPropagation();
+      document.querySelectorAll(".event-action-menu").forEach(otherMenu => {
+        if (otherMenu !== menu) otherMenu.classList.add("hidden");
+      });
+      const isOpening = menu.classList.contains("hidden");
+      menu.classList.toggle("hidden", !isOpening);
+      menuToggle.setAttribute("aria-expanded", String(isOpening));
+    });
 
     const editBtn = document.createElement("button");
     editBtn.type = "button";
     editBtn.className = "event-edit-btn";
     editBtn.textContent = "Rediger";
-    editBtn.addEventListener("click", () => editEvent(event.id));
+    editBtn.addEventListener("click", () => {
+      menu.classList.add("hidden");
+      editEvent(event.id);
+    });
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "event-delete-btn";
     deleteBtn.textContent = "Slett";
-    deleteBtn.addEventListener("click", () => deleteEvent(event.id));
+    deleteBtn.addEventListener("click", () => {
+      menu.classList.add("hidden");
+      deleteEvent(event.id);
+    });
 
-    actions.appendChild(editBtn);
-    actions.appendChild(deleteBtn);
+    menu.appendChild(editBtn);
+    menu.appendChild(deleteBtn);
+    actions.appendChild(menuToggle);
+    actions.appendChild(menu);
 
-    li.appendChild(textSpan);
+    li.appendChild(content);
     li.appendChild(actions);
 
     list.appendChild(li);
@@ -825,7 +1547,17 @@ function makeSubstitution(outId, inId, timeMs) {
   addToField(inId);
 
   const minuteText = formatMatchMinute(timeMs);
-  addEvent(`🔁 ${minuteText} – ${outPlayer.name} ut, ${inPlayer.name} inn`);
+  addEvent({
+    type: "substitution",
+    outPlayerId: outPlayer.id,
+    outPlayerName: outPlayer.name,
+    inPlayerId: inPlayer.id,
+    inPlayerName: inPlayer.name,
+    period: matchState.period,
+    timeMs,
+    minute: minuteText,
+    text: `🔁 ${minuteText} – ${outPlayer.name} ut, ${inPlayer.name} inn`
+  });
 
   saveLiveUpdate();
 }
@@ -981,91 +1713,399 @@ function pausePlayingTime(timeMs) {
   });
 }
 
-let pauseConfirm = false;
-
 pauseBtn.addEventListener("click", () => {
 
   if (matchState.status !== "LIVE") return;
 
-  // Første klikk → bekreft
-  if (!pauseConfirm) {
-    pauseConfirm = true;
-    pauseBtn.textContent = "Bekreft pause";
-
-    setTimeout(() => {
-      pauseConfirm = false;
-      pauseBtn.textContent = "Pause";
-    }, 2000);
-
-    return;
-  }
-
-  // Andre klikk → faktisk pause
-  pauseConfirm = false;
-  pauseBtn.textContent = "Pause";
-
-  const now = Date.now();
-
-pauseTimerNow();
-setMatchStatus("PAUSED");
-
-  pausePlayingTime(matchState.timer.elapsedMs);
+  pauseTimerNow();
+  setMatchStatus("TEMP_STOPPED");
 
   stopClock();
-  periodIndicator.textContent = "Pause i kampen";
+  periodIndicator.textContent = `${matchState.period}. omgang – klokken stoppet`;
 
-addEvent("⏸️ Pause i kampen");
+  addEvent("⏸️ Klokken stoppet");
 
-syncUI();
+  syncUI();
 });
 
-let endConfirm = false;
+let editingFirstHalfEventId = null;
 
-endBtn.addEventListener("click", async () => {
+function getFirstHalfEndMs(event = null) {
+  if (Number.isFinite(matchState.firstHalfActualEndMs)) {
+    return matchState.firstHalfActualEndMs;
+  }
 
-  if (matchState.status !== "LIVE") return;
+  const parsedMinute = parseMatchMinuteInput(event?.minute);
+  if (parsedMinute) return parsedMinute.totalMinutes * 60 * 1000;
+  if (Number.isFinite(event?.timeMs)) return event.timeMs;
+  return getHalfLengthMs();
+}
 
-  // Første klikk → bekreft
-  if (!endConfirm) {
-    endConfirm = true;
-    endBtn.textContent = "Bekreft slutt";
+function formatFirstHalfEndInput(timeMs) {
+  const halfMinutes = matchState.meta.halfLengthMin || 35;
+  const totalMinutes = Math.max(1, Math.round(timeMs / 60000));
+  const overtime = Math.max(0, totalMinutes - halfMinutes);
+  return overtime > 0 ? `${halfMinutes} + ${overtime}` : String(totalMinutes);
+}
 
-    setTimeout(() => {
-      endConfirm = false;
-      endBtn.textContent = "Stopp";
-    }, 2000);
+function openHalfTimeEndModal() {
+  if (
+    matchState.period !== 1 ||
+    !["LIVE", "TEMP_STOPPED", "HALFTIME"].includes(matchState.status)
+  ) return;
 
+  editingFirstHalfEventId = null;
+
+  const halfMinutes = matchState.meta.halfLengthMin || 35;
+  const currentMinute = Math.max(1, Math.ceil(getCurrentMatchTimeMs() / 60000));
+  const input = document.getElementById("halfTimeEndInput");
+
+  const savedOvertime = Math.max(0, currentMinute - halfMinutes);
+  input.value = matchState.status === "HALFTIME" && savedOvertime > 0
+    ? `${halfMinutes} + ${savedOvertime}`
+    : String(halfMinutes);
+  document.getElementById("halfTimeEndClockHint").textContent =
+    `Klokken viser omtrent ${currentMinute} minutter.`;
+  document.getElementById("confirmHalfTimeEndBtn").textContent =
+    matchState.status === "HALFTIME" ? "Lagre korrigering" : "Start pause";
+  document.getElementById("halfTimeEndModal").classList.remove("hidden");
+  input.focus();
+  input.select();
+}
+
+function openFirstHalfCorrectionModal(event) {
+  editingFirstHalfEventId = event.id;
+  const storedEndMs = getFirstHalfEndMs(event);
+  const input = document.getElementById("halfTimeEndInput");
+
+  input.value = formatFirstHalfEndInput(storedEndMs);
+  document.getElementById("halfTimeEndClockHint").textContent =
+    "Spilletiden for 1. omgang blir korrigert sammen med klokkeslettet.";
+  document.getElementById("confirmHalfTimeEndBtn").textContent = "Lagre korrigering";
+  document.getElementById("halfTimeEndModal").classList.remove("hidden");
+  input.focus();
+  input.select();
+}
+
+function closeHalfTimeEndModal() {
+  document.getElementById("halfTimeEndModal").classList.add("hidden");
+  editingFirstHalfEventId = null;
+}
+
+async function finishFirstHalfAt(finalMinute) {
+  const finalTimeMs = finalMinute.totalMinutes * 60 * 1000;
+  const currentTimeMs = getCurrentMatchTimeMs();
+  const currentMinute = Math.max(1, Math.ceil(currentTimeMs / 60000));
+
+  if (finalMinute.totalMinutes > currentMinute) {
+    alert(`Klokken har bare kommet til omtrent ${currentMinute}. minutt.`);
     return;
   }
 
-  // Andre klikk → avslutt
-  endConfirm = false;
-  endBtn.textContent = "Stopp";
+  const latestMatchEventTime = Math.max(
+    0,
+    ...matchState.events
+      .filter(event => ["goal", "substitution", "card"].includes(event?.type))
+      .map(event => Number(event?.timeMs) || 0)
+  );
 
-  if (matchState.timer.startTimestamp) {
-    matchState.timer.elapsedMs +=
-      Date.now() - matchState.timer.startTimestamp;
+  if (finalTimeMs < latestMatchEventTime) {
+    alert("Sluttminuttet kan ikke være før den siste registrerte kamphendelsen. Rediger hendelsen først.");
+    return;
   }
 
+  const wasAlreadyHalfTime = matchState.status === "HALFTIME";
+  closePlayingIntervalsAt(finalTimeMs);
+  matchState.timer.elapsedMs = finalTimeMs;
+  matchState.timer.startTimestamp = null;
+  matchState.status = "HALFTIME";
+  matchState.halftimeStartedAt = matchState.halftimeStartedAt || Date.now();
+  matchState.firstHalfActualEndMs = finalTimeMs;
+
+  const existingHalfTimeEvent = matchState.events.find(event =>
+    /1\. omgang avsluttet/i.test(event?.rawText || event?.text || "")
+  );
+
+  if (wasAlreadyHalfTime && existingHalfTimeEvent) {
+    existingHalfTimeEvent.timeMs = finalTimeMs;
+    existingHalfTimeEvent.minute = finalMinute.label;
+    existingHalfTimeEvent.period = 1;
+    existingHalfTimeEvent.edited = true;
+    existingHalfTimeEvent.editedAt = new Date().toISOString();
+  } else {
+    addEvent("⏸️ 1. omgang avsluttet");
+  }
+
+  closeHalfTimeEndModal();
+  stopClock();
+  periodIndicator.textContent = "Pause mellom omgangene";
+  syncUI();
+  updatePlayingTimeUI();
+  await saveLiveUpdate();
+}
+
+function adjustFirstHalfPlayerTime(oldEndMs, newEndMs) {
+  const officialHalfMs = getHalfLengthMs();
+  const oldBaseEndMs = Math.min(oldEndMs, officialHalfMs);
+  const newBaseEndMs = Math.min(newEndMs, officialHalfMs);
+  const oldOvertimeMs = Math.max(0, oldEndMs - officialHalfMs);
+  const newOvertimeMs = Math.max(0, newEndMs - officialHalfMs);
+
+  Object.values(matchState.players.home).forEach(player => {
+    const intervals = Array.isArray(player.intervals) ? player.intervals : [];
+    const oldBonusMs = Math.max(0, Number(player.extraPlayingTimeMs) || 0);
+    const wasOnAtFirstHalfEnd = oldBonusMs > 0 || intervals.some(interval =>
+      Number(interval.in) < oldBaseEndMs &&
+      Number(interval.out) === oldBaseEndMs
+    );
+
+    if (oldBaseEndMs !== newBaseEndMs && wasOnAtFirstHalfEnd) {
+      const intervalIndex = intervals.findLastIndex(interval =>
+        Number(interval.in) < oldBaseEndMs &&
+        Number(interval.out) === oldBaseEndMs
+      );
+
+      if (intervalIndex >= 0) {
+        intervals[intervalIndex].out = newBaseEndMs;
+        if (intervals[intervalIndex].out <= intervals[intervalIndex].in) {
+          intervals.splice(intervalIndex, 1);
+        }
+      }
+    }
+
+    if (newOvertimeMs === 0 || !wasOnAtFirstHalfEnd) {
+      player.extraPlayingTimeMs = 0;
+    } else if (oldOvertimeMs === 0) {
+      player.extraPlayingTimeMs = newOvertimeMs;
+    } else if (newOvertimeMs <= oldOvertimeMs) {
+      player.extraPlayingTimeMs = Math.min(oldBonusMs, newOvertimeMs);
+    } else {
+      player.extraPlayingTimeMs = oldBonusMs >= oldOvertimeMs - 1000
+        ? newOvertimeMs
+        : oldBonusMs;
+    }
+  });
+}
+
+async function correctCompletedFirstHalfAt(finalMinute) {
+  const event = matchState.events.find(item => item.id === editingFirstHalfEventId);
+  if (!event) return;
+
+  const newEndMs = finalMinute.totalMinutes * 60 * 1000;
+  const oldEndMs = getFirstHalfEndMs(event);
+  const latestFirstHalfEventMs = Math.max(
+    0,
+    ...matchState.events
+      .filter(item =>
+        item.id !== event.id &&
+        item.period === 1 &&
+        ["goal", "substitution", "card"].includes(item.type)
+      )
+      .map(item => Number(item.timeMs) || 0)
+  );
+
+  if (newEndMs < latestFirstHalfEventMs) {
+    alert("Sluttminuttet kan ikke være før den siste hendelsen i 1. omgang.");
+    return;
+  }
+
+  adjustFirstHalfPlayerTime(oldEndMs, newEndMs);
+  matchState.firstHalfActualEndMs = newEndMs;
+  event.timeMs = newEndMs;
+  event.minute = finalMinute.label;
+  event.period = 1;
+  event.edited = true;
+  event.editedAt = new Date().toISOString();
+
+  closeHalfTimeEndModal();
+  renderEvents();
+  updatePlayingTimeUI();
+  await saveLiveUpdate();
+}
+
+halfTimeBtn.addEventListener("click", openHalfTimeEndModal);
+
+document.getElementById("cancelHalfTimeEndBtn")
+  .addEventListener("click", closeHalfTimeEndModal);
+
+document.getElementById("confirmHalfTimeEndBtn")
+  .addEventListener("click", async () => {
+    const finalMinute = parseMatchMinuteInput(
+      document.getElementById("halfTimeEndInput").value
+    );
+
+    if (!finalMinute || finalMinute.totalMinutes <= 0) {
+      alert("Skriv sluttminutt som 35 eller 35 + 2.");
+      return;
+    }
+
+    if (editingFirstHalfEventId) {
+      await correctCompletedFirstHalfAt(finalMinute);
+    } else {
+      await finishFirstHalfAt(finalMinute);
+    }
+  });
+
+function parseMatchMinuteInput(value) {
+  const match = String(value || "").trim()
+    .match(/^(\d{1,3})(?:\s*\+\s*(\d{1,2}))?$/);
+  if (!match) return null;
+
+  const baseMinute = Number(match[1]);
+  const overtimeMinute = Number(match[2] || 0);
+  return {
+    baseMinute,
+    overtimeMinute,
+    totalMinutes: baseMinute + overtimeMinute,
+    label: overtimeMinute > 0
+      ? `${baseMinute} + ${overtimeMinute}`
+      : String(baseMinute)
+  };
+}
+
+function openEndTimeModal() {
+  if (matchState.status !== "LIVE") return;
+
+  const officialMinutes = (matchState.meta.halfLengthMin || 35) * 2;
+  const clockMinutes = Math.max(
+    officialMinutes,
+    Math.ceil(getCurrentMatchTimeMs() / 60000)
+  );
+  const overtimeMinutes = Math.max(0, clockMinutes - officialMinutes);
+  const input = document.getElementById("endTimeInput");
+
+  input.value = overtimeMinutes > 0
+    ? `${officialMinutes} + ${overtimeMinutes}`
+    : String(officialMinutes);
+  document.getElementById("endTimeClockHint").textContent =
+    `Klokken viser omtrent ${clockMinutes} minutter.`;
+  document.getElementById("endTimeModal").classList.remove("hidden");
+  input.focus();
+  input.select();
+}
+
+function closeEndTimeModal() {
+  document.getElementById("endTimeModal").classList.add("hidden");
+}
+
+function closePlayingIntervalsAt(finalTimeMs) {
+  Object.values(matchState.players.home).forEach(player => {
+    const intervals = Array.isArray(player.intervals) ? player.intervals : [];
+
+    player.intervals = intervals
+      .filter(interval => Number(interval?.in) < finalTimeMs)
+      .map(interval => ({
+        ...interval,
+        out: Math.min(
+          interval.out == null ? finalTimeMs : Number(interval.out),
+          finalTimeMs
+        )
+      }))
+      .filter(interval => interval.out > interval.in);
+  });
+}
+
+async function finishMatchAt(finalMinute) {
+  const finalTimeMs = finalMinute.totalMinutes * 60 * 1000;
+  const latestEventTimeMs = Math.max(
+    0,
+    ...matchState.events.map(event => Number(event?.timeMs) || 0)
+  );
+
+  if (finalTimeMs < latestEventTimeMs) {
+    alert("Sluttminuttet kan ikke være før den siste registrerte hendelsen.");
+    return;
+  }
+
+  closePlayingIntervalsAt(finalTimeMs);
+  matchState.timer.elapsedMs = finalTimeMs;
+  matchState.timer.startTimestamp = null;
+
+  closeEndTimeModal();
   stopClock();
   matchState.status = "ENDED";
 
   periodIndicator.textContent = "Kamp ferdig";
 
-  addEvent("🏁 Kamp avsluttet");
+  addEvent(`🏁 Kamp avsluttet (${finalMinute.label} min)`);
 
   updateControls();
 
   await saveFinalMatch();
+}
+
+endBtn.addEventListener("click", openEndTimeModal);
+
+document.getElementById("cancelEndTimeBtn")
+  .addEventListener("click", closeEndTimeModal);
+
+document.getElementById("confirmEndTimeBtn")
+  .addEventListener("click", async () => {
+    const finalMinute = parseMatchMinuteInput(
+      document.getElementById("endTimeInput").value
+    );
+
+    if (!finalMinute || finalMinute.totalMinutes <= 0) {
+      alert("Skriv sluttminutt som 70 eller 70 + 3.");
+      return;
+    }
+
+    await finishMatchAt(finalMinute);
 });
+
+function preserveFirstHalfOvertime(firstHalfEndMs) {
+  const officialHalfMs = getHalfLengthMs();
+  if (firstHalfEndMs <= officialHalfMs) return;
+
+  Object.values(matchState.players.home).forEach(player => {
+    const intervals = Array.isArray(player.intervals) ? player.intervals : [];
+    const overtimePlayedMs = intervals.reduce((sum, interval) => {
+      const start = Math.max(Number(interval.in) || 0, officialHalfMs);
+      const end = Math.min(
+        interval.out == null ? firstHalfEndMs : Number(interval.out),
+        firstHalfEndMs
+      );
+      return sum + Math.max(0, end - start);
+    }, 0);
+
+    player.extraPlayingTimeMs =
+      Math.max(0, Number(player.extraPlayingTimeMs) || 0) + overtimePlayedMs;
+
+    player.intervals = intervals
+      .filter(interval => (Number(interval.in) || 0) < officialHalfMs)
+      .map(interval => ({
+        ...interval,
+        out: Math.min(
+          interval.out == null ? firstHalfEndMs : Number(interval.out),
+          officialHalfMs
+        )
+      }))
+      .filter(interval => interval.out > interval.in);
+  });
+}
 
 resumeBtn.addEventListener("click", () => {
 
-  if (matchState.status !== "PAUSED") return;
+  if (matchState.status === "TEMP_STOPPED") {
+    matchState.status = "LIVE";
+    startTimerNow();
+    periodIndicator.textContent = `${matchState.period}. omgang`;
 
-  // 👉 Sett til start av 2. omgang
+    startClock();
+    addEvent("▶️ Kampen fortsatte");
+    syncUI();
+    return;
+  }
+
+  if (!["HALFTIME", "PAUSED"].includes(matchState.status)) return;
+
+  preserveFirstHalfOvertime(matchState.timer.elapsedMs);
+
+  // Kampklokken starter på ordinære 35:00, mens eventuell tilleggstid
+  // fra 1. omgang ligger bevart separat på spillerne.
   matchState.period = 2;
   matchState.timer.elapsedMs = getHalfLengthMs(); // ← VIKTIG
+  matchState.halftimeStartedAt = null;
 
   matchState.status = "LIVE";
   startTimerNow();
@@ -1093,111 +2133,101 @@ document.querySelectorAll(".goalBtn").forEach(button => {
 
 function openGoalModal() {
   goalModal.classList.remove("hidden");
+  manualGoalTimeWrapper.classList.add("hidden");
+  manualGoalTimeInput.value = "";
+  toggleManualGoalTimeBtn.textContent = "Endre tidspunkt";
+  goalTimeSummary.textContent = `Registreres i ${formatMatchMinute(getLiveElapsedMs()) || "1"}. minutt`;
 
-  // 🔁 Reset: skjul begge først
   homeScorerWrapper.classList.add("hidden");
   opponentScorerWrapper.classList.add("hidden");
+  confirmGoalBtn.classList.add("hidden");
 
-  // 🏠 Hjemmelag
   if (pendingGoalTeam === "home") {
+    const teamName = matchState.meta.ourTeam || "Samnanger";
+    goalModalTitle.textContent = `Hvem scoret for ${teamName}?`;
+    goalModalHelp.textContent = "Trykk på spilleren – målet lagres med én gang.";
     homeScorerWrapper.classList.remove("hidden");
     populateGoalScorers("home");
   }
 
-  // 🚌 Bortelag
   if (pendingGoalTeam === "away") {
+    const teamName = matchState.meta.opponent || "motstanderen";
+    goalModalTitle.textContent = `Mål til ${teamName}`;
+    goalModalHelp.textContent = "Navn er valgfritt.";
     opponentScorerWrapper.classList.remove("hidden");
+    confirmGoalBtn.classList.remove("hidden");
     opponentScorerInput.value = "";
   }
 }
 
 function closeGoalModal() {
   goalModal.classList.add("hidden");
-
-  // reset tid
   manualGoalTimeInput.value = "";
-  manualGoalTimeInput.disabled = true;
-
-  // reset radios
-  const nowRadio =
-    document.querySelector('input[name="goalTimeType"][value="now"]');
-  if (nowRadio) nowRadio.checked = true;
-
-  // reset spillervalg
+  manualGoalTimeWrapper.classList.add("hidden");
+  toggleManualGoalTimeBtn.textContent = "Endre tidspunkt";
   goalScorerSelect.value = "";
   opponentScorerInput.value = "";
+  pendingGoalTeam = null;
 }
 
-document.querySelectorAll('input[name="goalTimeType"]').forEach(radio => {
-  radio.addEventListener("change", () => {
-    manualGoalTimeInput.disabled =
-      radio.value !== "manual";
-  });
+toggleManualGoalTimeBtn.addEventListener("click", () => {
+  const isOpening = manualGoalTimeWrapper.classList.contains("hidden");
+  manualGoalTimeWrapper.classList.toggle("hidden", !isOpening);
+  toggleManualGoalTimeBtn.textContent = isOpening ? "Bruk kampklokken" : "Endre tidspunkt";
+  goalTimeSummary.textContent = isOpening
+    ? "Velg kampminutt"
+    : `Registreres i ${formatMatchMinute(getLiveElapsedMs()) || "1"}. minutt`;
+
+  if (isOpening) {
+    manualGoalTimeInput.focus();
+  } else {
+    manualGoalTimeInput.value = "";
+  }
 });
 
+function getPendingGoalTimeMs() {
+  if (manualGoalTimeWrapper.classList.contains("hidden")) {
+    return getLiveElapsedMs();
+  }
+
+  const parsed = parseMatchMinuteInput(manualGoalTimeInput.value);
+  if (!parsed || parsed.baseMinute < 1) {
+    alert("Skriv inn kampminutt, for eksempel 12 eller 70 + 2");
+    return null;
+  }
+
+  const liveTimeMs = getLiveElapsedMs();
+  const liveMinute = Math.max(1, Math.ceil(liveTimeMs / 60000));
+  if (parsed.totalMinutes > liveMinute) {
+    alert(`Kampklokken har bare kommet til ${liveMinute}. minutt`);
+    return null;
+  }
+
+  return Math.min(liveTimeMs, parsed.totalMinutes * 60000 - 1);
+}
+
+function registerPendingGoal(scorerData) {
+  if (!pendingGoalTeam) return;
+  const timeMs = getPendingGoalTimeMs();
+  if (timeMs === null) return;
+
+  registerGoal(pendingGoalTeam, timeMs, scorerData);
+  closeGoalModal();
+
+  setTimeout(() => {
+    updatePlayingTimeUI();
+  }, 0);
+}
+
 confirmGoalBtn.addEventListener("click", () => {
-  let timeMs;
+  const text = opponentScorerInput.value.trim();
+  registerPendingGoal({ text: text || null });
+});
 
-  const timeType =
-    document.querySelector('input[name="goalTimeType"]:checked').value;
-
-  if (timeType === "manual") {
-    const value = manualGoalTimeInput.value.trim();
-    if (!/^\d{1,3}$/.test(value)) {
-  alert("Skriv inn minutt (f.eks 12)");
-  return;
-}
-
-const minute = Number(value);
-
-if (!Number.isInteger(minute)) {
-  alert("Ugyldig minutt");
-  return;
-}
-
-const maxMinute = (matchState.meta.halfLengthMin ?? 45) * 2;
-
-if (minute < 1 || minute > maxMinute) {
-  alert(`Minutt må være mellom 1 og ${maxMinute}`);
-  return;
-}
-
-if (minute > matchState.meta.halfLengthMin) {
-  timeMs =
-    getHalfLengthMs() +
-    (minute - matchState.meta.halfLengthMin - 1) * 60 * 1000;
-} else {
-  timeMs = (minute - 1) * 60 * 1000;
-}
-
-  } else {
-    timeMs = getLiveElapsedMs();
-  }
-
-  let scorerData = null;
-
-  if (pendingGoalTeam === "home") {
-    const scorerId = goalScorerSelect.value;
-    if (!scorerId) {
-      alert("Velg målscorer");
-      return;
-    }
-    scorerData = { id: scorerId };
-  }
-
-  if (pendingGoalTeam === "away") {
-    const text = opponentScorerInput.value.trim();
-    scorerData = {
-      text: text || null
-    };
-  }
-
- registerGoal(pendingGoalTeam, timeMs, scorerData);
-closeGoalModal();
-
-setTimeout(() => {
-  updatePlayingTimeUI();
-}, 0);
+opponentScorerInput.addEventListener("keydown", event => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  confirmGoalBtn.click();
 });
 
 cancelGoalBtn.addEventListener("click", closeGoalModal);
@@ -1205,59 +2235,152 @@ cancelGoalBtn.addEventListener("click", closeGoalModal);
   
   updateScoreboard();
 
+let pendingSubOutId = null;
+
+const subPlayerGrid = document.getElementById("subPlayerGrid");
+const subInstruction = document.getElementById("subInstruction");
+const subBackBtn = document.getElementById("subBackBtn");
+const manualSubTimeWrapper = document.getElementById("manualSubTimeWrapper");
+const manualSubTimeInput = document.getElementById("manualSubTime");
+const toggleManualSubTimeBtn = document.getElementById("toggleManualSubTimeBtn");
+const subTimeSummary = document.getElementById("subTimeSummary");
+
+function fillSubPlayerGrid(players, selectionType) {
+  subPlayerGrid.innerHTML = "";
+
+  players
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, "nb"))
+    .forEach(player => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `sub-player-option sub-player-${selectionType}`;
+      button.textContent = player.name;
+      button.addEventListener("click", () => {
+        if (selectionType === "out") {
+          chooseSubPlayerOut(player.id);
+        } else {
+          completeQuickSubstitution(player.id);
+        }
+      });
+      subPlayerGrid.appendChild(button);
+    });
+}
+
 function openSubModal() {
-  const outSelect = document.getElementById("subOutSelect");
-  const inSelect = document.getElementById("subInSelect");
+  pendingSubOutId = null;
+  subInstruction.textContent = "Hvem skal ut?";
+  subBackBtn.classList.add("hidden");
+  manualSubTimeWrapper.classList.add("hidden");
+  manualSubTimeInput.value = "";
+  toggleManualSubTimeBtn.textContent = "Endre tidspunkt";
+  subTimeSummary.textContent = `Bytte i ${formatMatchMinute(getCurrentMatchTimeMs()) || "1"}. minutt`;
 
-  outSelect.innerHTML = "";
-  inSelect.innerHTML = "";
+  const onFieldPlayers = matchState.squad.onField.home
+    .map(id => matchState.players.home[id])
+    .filter(Boolean);
 
-  // Spillere på banen → kan gå UT
-  matchState.squad.onField.home.forEach(id => {
-    const p = matchState.players.home[id];
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.name;
-    outSelect.appendChild(opt);
-  });
-
-  // Spillere på benken → kan gå INN
-Object.values(matchState.players.home).forEach(p => {
-  const hasRedCard = p.cards?.some(c => c.type === "red");
-
-  if (!isOnField(p.id) && !hasRedCard) {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.name;
-    inSelect.appendChild(opt);
-  }
-});
-
+  fillSubPlayerGrid(onFieldPlayers, "out");
   document.getElementById("subModal").classList.remove("hidden");
 }
 
-document.getElementById("confirmSubBtn").addEventListener("click", () => {
-  const outId = document.getElementById("subOutSelect").value;
-  const inId = document.getElementById("subInSelect").value;
+toggleManualSubTimeBtn.addEventListener("click", () => {
+  const isOpening = manualSubTimeWrapper.classList.contains("hidden");
+  manualSubTimeWrapper.classList.toggle("hidden", !isOpening);
+  toggleManualSubTimeBtn.textContent = isOpening ? "Bruk kampklokken" : "Endre tidspunkt";
+  subTimeSummary.textContent = isOpening
+    ? "Velg kampminutt"
+    : `Bytte i ${formatMatchMinute(getCurrentMatchTimeMs()) || "1"}. minutt`;
 
-  const timeMs = getCurrentMatchTimeMs();
-  
-makeSubstitution(outId, inId, timeMs);
-closeSubModal();
+  if (isOpening) {
+    manualSubTimeInput.focus();
+  } else {
+    manualSubTimeInput.value = "";
+  }
+});
 
-setTimeout(() => {
-  updatePlayingTimeUI();
-}, 0);
+function getSubstitutionTimeMs(outId, inId) {
+  if (manualSubTimeWrapper.classList.contains("hidden")) {
+    return getCurrentMatchTimeMs();
+  }
+
+  const parsed = parseMatchMinuteInput(manualSubTimeInput.value);
+  if (!parsed || parsed.baseMinute < 1) {
+    alert("Skriv inn kampminutt, for eksempel 48 eller 70 + 2");
+    return null;
+  }
+
+  const currentTimeMs = getCurrentMatchTimeMs();
+  const currentMinute = Math.max(1, Math.ceil(currentTimeMs / 60000));
+
+  if (parsed.totalMinutes > currentMinute) {
+    alert(`Byttet må være mellom kampminutt 1 og ${currentMinute}`);
+    return null;
+  }
+
+  const timeMs = Math.min(parsed.totalMinutes * 60 * 1000 - 1, currentTimeMs);
+  const outPlayer = matchState.players.home[outId];
+  const inPlayer = matchState.players.home[inId];
+  const outInterval = outPlayer?.intervals?.at(-1);
+  const previousInInterval = inPlayer?.intervals?.at(-1);
+
+  if (outInterval && timeMs < outInterval.in) {
+    alert(`${outPlayer.name} var ikke på banen på det tidspunktet`);
+    return null;
+  }
+
+  if (previousInInterval?.out != null && timeMs < previousInInterval.out) {
+    alert(`${inPlayer.name} var fortsatt på banen på det tidspunktet`);
+    return null;
+  }
+
+  return timeMs;
+}
+
+function chooseSubPlayerOut(playerId) {
+  pendingSubOutId = playerId;
+  const outPlayer = matchState.players.home[playerId];
+  const benchPlayers = Object.values(matchState.players.home).filter(player => {
+    const hasRedCard = player.cards?.some(card => card.type === "red");
+    return !isOnField(player.id) && !hasRedCard && player.present;
+  });
+
+  subInstruction.textContent = `${outPlayer.name} ut – hvem skal inn?`;
+  subBackBtn.classList.remove("hidden");
+  fillSubPlayerGrid(benchPlayers, "in");
+}
+
+function completeQuickSubstitution(inPlayerId) {
+  if (!pendingSubOutId) return;
+  const timeMs = getSubstitutionTimeMs(pendingSubOutId, inPlayerId);
+  if (timeMs === null) return;
+
+  makeSubstitution(pendingSubOutId, inPlayerId, timeMs);
+  closeSubModal();
+
+  setTimeout(() => {
+    updatePlayingTimeUI();
+  }, 0);
+}
+
+subBackBtn.addEventListener("click", () => {
+  pendingSubOutId = null;
+  subInstruction.textContent = "Hvem skal ut?";
+  subBackBtn.classList.add("hidden");
+  const onFieldPlayers = matchState.squad.onField.home
+    .map(id => matchState.players.home[id])
+    .filter(Boolean);
+  fillSubPlayerGrid(onFieldPlayers, "out");
 });
 
 function calculateMinutesPlayed(player) {
-  let totalMs = 0;
+  let totalMs = Math.max(0, Number(player.extraPlayingTimeMs) || 0);
 
   const currentTime = getCurrentMatchTimeMs(); // 🔥 viktig
 
   player.intervals.forEach(interval => {
     const end = interval.out ?? currentTime;
-    totalMs += end - interval.in;
+    totalMs += Math.max(0, end - interval.in);
   });
 
   return Math.floor(totalMs / 60000);
@@ -1272,8 +2395,8 @@ document.getElementById("togglePlayingTimeBtn")
 
   const isHidden = panel.classList.contains("hidden");
 
-  document.getElementById("togglePlayingTimeBtn").textContent =
-    isHidden ? "Vis spilletid" : "Skjul spilletid";
+  document.getElementById("togglePlayingTimeBtn")
+    .classList.toggle("is-expanded", !isHidden);
 
   // 🔥 START/STOP OPPDATERING
   if (!isHidden) {
@@ -1292,8 +2415,12 @@ document.getElementById("togglePlayingTimeBtn")
 const adjustInput = document.getElementById("adjustTimeInput");
 
 document.getElementById("adjustStartBtn").addEventListener("click", () => {
+  if (matchState.period === 1 && matchState.status === "HALFTIME") {
+    openHalfTimeEndModal();
+    return;
+  }
 
-  if (matchState.status !== "LIVE") {
+  if (!["LIVE", "TEMP_STOPPED"].includes(matchState.status)) {
     alert("Kampen må være startet");
     return;
   }
@@ -1333,37 +2460,43 @@ document.getElementById("confirmAdjustTimeBtn").addEventListener("click", () => 
       getHalfLengthMs() + minutes * 60 * 1000;
   }
 
-  // 🔥 JUSTER KLOKKE
+  const latestEventTimeMs = Math.max(
+    0,
+    ...matchState.events
+      .filter(event => ["goal", "substitution", "card"].includes(event?.type))
+      .map(event => Number(event?.timeMs) || 0)
+  );
+  const latestOpenIntervalStart = Math.max(
+    0,
+    ...Object.values(matchState.players.home)
+      .flatMap(player => player?.intervals || [])
+      .filter(interval => interval?.out === null)
+      .map(interval => Number(interval.in) || 0)
+  );
+
+  if (adjustMs < Math.max(latestEventTimeMs, latestOpenIntervalStart)) {
+    alert("Klokken kan ikke flyttes til før siste registrerte hendelse eller spillerbytte.");
+    return;
+  }
+
   matchState.timer.elapsedMs = adjustMs;
-  matchState.timer.startTimestamp = Date.now();
+  matchState.timer.startTimestamp = matchState.status === "LIVE" ? Date.now() : null;
 
-  // 🔥 JUSTER SPILLERTID
-  matchState.squad.onField.home.forEach(playerId => {
-    const player = matchState.players.home[playerId];
-    if (!player || !player.intervals?.length) return;
-
-    const last = player.intervals.at(-1);
-
-    if (last.out === null) {
-      last.in =
-        matchState.period === 1
-          ? 0
-          : getHalfLengthMs();
-    }
-  });
-
-  addEvent(`⏱️ Starttid justert til ${minutes} min`);
+  addEvent(`⏱️ Kampklokken korrigert til ${minutes} min`);
 
   updatePlayingTimeUI();
 saveLiveUpdate();
   adjustModal.classList.add("hidden");
 });
 
+const MINIMUM_PLAYING_MINUTES = 25;
+
 function updatePlayingTimeUI() {
   const list = document.getElementById("playingTimeList");
   list.innerHTML = "";
 
-  const players = Object.values(matchState.players.home);
+  const players = Object.values(matchState.players.home)
+    .filter(player => player?.present === true);
 
   players.sort((a, b) => {
     const aOn = isOnField(a.id);
@@ -1383,11 +2516,12 @@ function updatePlayingTimeUI() {
     return bMin - aMin;
   });
 
-  const allPlayers = Object.values(matchState.players.home);
-
-  const avgMinutes =
-    allPlayers.reduce((sum, p) => sum + calculateMinutesPlayed(p), 0) /
-    allPlayers.length;
+  const avgMinutes = players.length > 0
+    ? players.reduce(
+        (sum, player) => sum + Math.max(0, calculateMinutesPlayed(player)),
+        0
+      ) / players.length
+    : 0;
 
   let currentSection = null;
 
@@ -1421,14 +2555,22 @@ function updatePlayingTimeUI() {
     if (yellow > 0) cardText += " 🟨".repeat(yellow);
     if (red) cardText += " 🟥";
 
+    const minimumReached = minutes >= MINIMUM_PLAYING_MINUTES;
+    const minimumStatus = minimumReached
+      ? `<span class="minimum-status minimum-reached" title="Minstekravet er nådd">✓</span>`
+      : `<span class="minimum-status minimum-missing">mangler ${MINIMUM_PLAYING_MINUTES - minutes}</span>`;
+
     li.innerHTML = `
   <span class="player-name">
     ${player.name} <span class="cards">${cardText}</span>
   </span>
   <span class="player-minutes">
-    ${minutes} min
+    <span class="minutes-value">${minutes} min</span>
+    ${minimumStatus}
   </span>
 `;
+
+    li.classList.add(minimumReached ? "minimum-met" : "minimum-under");
 
     if (isOn) {
       li.classList.add("on");
@@ -1649,6 +2791,7 @@ select.appendChild(placeholder);
   // Kun spillere som er på banen
 Object.values(matchState.players.home).forEach(p => {
   if (!p) return;
+  if (!p.present) return;
   if (p.cards?.some(c => c.type === "red")) return;
 
   const opt = document.createElement("option");
@@ -1737,23 +2880,54 @@ if (team === "home") {
   }
 
   const player = matchState.players.home[playerId];
+  const wasPlayerOnField = isOnField(playerId);
 
   if (player.cards.some(c => c.type === "red")) {
     alert("Spilleren er allerede utvist");
     return;
   }
 
-  player.cards.push({ type, timeMs });
-  addEvent(`${icon} ${minuteText} – ${player.name}`);
+  const cardId = crypto.randomUUID?.() || `card-${Date.now()}-${Math.random()}`;
+  player.cards.push({ id: cardId, type, timeMs });
+  addEvent({
+    type: "card",
+    team: "home",
+    cardType: type,
+    cardId,
+    playerId,
+    playerName: player.name,
+    wasPlayerOnField,
+    period: matchState.period,
+    timeMs,
+    minute: minuteText,
+    text: `${icon} ${minuteText} – ${player.name}`
+  });
 
   const yellowCount =
     player.cards.filter(c => c.type === "yellow").length;
 
   if (type === "yellow" && yellowCount === 2) {
-    player.cards.push({ type: "red", timeMs });
-    addEvent(
-      `🟥 ${minuteText} – ${player.name} (2 gule)`
-    );
+    const redCardId = crypto.randomUUID?.() || `card-${Date.now()}-${Math.random()}`;
+    player.cards.push({
+      id: redCardId,
+      type: "red",
+      timeMs,
+      derivedFromCardId: cardId
+    });
+    addEvent({
+      type: "card",
+      team: "home",
+      cardType: "red",
+      cardId: redCardId,
+      derivedFromCardId: cardId,
+      playerId,
+      playerName: player.name,
+      wasPlayerOnField,
+      period: matchState.period,
+      timeMs,
+      minute: minuteText,
+      text: `🟥 ${minuteText} – ${player.name} (2 gule)`
+    });
     handleRedCard(playerId, timeMs);
   }
 
@@ -1770,9 +2944,20 @@ if (team === "away") {
   const name =
     cardOpponentInput.value.trim() || "Ukjent spiller";
 
-  addEvent(
-    `${icon} ${minuteText} – ${name} (${matchState.meta.opponent})`
-  );
+  const opponentName =
+    matchState.meta.opponent || awayTeamInput.value.trim() || "Motstander";
+
+  addEvent({
+    type: "card",
+    team: "away",
+    cardType: type,
+    playerId: null,
+    playerName: name,
+    period: matchState.period,
+    timeMs,
+    minute: minuteText,
+    text: `${icon} ${minuteText} – ${name} (${opponentName})`
+  });
 }
 
 document
@@ -1782,7 +2967,81 @@ saveLiveUpdate();
 });
 
 
-document.getElementById("saveSquadBtn").addEventListener("click", () => {
+function getLineupPlayerKey(name) {
+  return String(name || "")
+    .trim()
+    .split(/\s+/)[0]
+    .toLocaleLowerCase("no");
+}
+
+async function syncLineupWithSquad() {
+  try {
+    const matchRef = getMatchRef();
+    const snapshot = await getDoc(matchRef);
+    const storedData = snapshot.exists() ? snapshot.data() : {};
+    const storedLineup = Array.isArray(storedData.lineup)
+      ? storedData.lineup
+      : DEFAULT_451_LINEUP;
+    const starterPlayers = Object.values(matchState.players.home)
+      .filter(player => player.present === true && player.starter === true);
+
+    const lineupByPlayer = new Map(
+      storedLineup.map(player => [getLineupPlayerKey(player.name), player])
+    );
+    const positionSlots = [];
+    const positionKeys = new Set();
+
+    [...storedLineup, ...DEFAULT_451_LINEUP].forEach(player => {
+      if (!Number.isFinite(player?.x) || !Number.isFinite(player?.y)) return;
+      const positionKey = `${player.x}:${player.y}`;
+      if (positionKeys.has(positionKey)) return;
+      positionKeys.add(positionKey);
+      positionSlots.push({ x: player.x, y: player.y });
+    });
+
+    const usedPositions = new Set();
+    starterPlayers.forEach(player => {
+      const existing = lineupByPlayer.get(getLineupPlayerKey(player.name));
+      if (existing && Number.isFinite(existing.x) && Number.isFinite(existing.y)) {
+        usedPositions.add(`${existing.x}:${existing.y}`);
+      }
+    });
+
+    const syncedLineup = starterPlayers.map(player => {
+      const existing = lineupByPlayer.get(getLineupPlayerKey(player.name));
+      if (existing) {
+        return { ...existing };
+      }
+
+      const freePosition = positionSlots.find(position =>
+        !usedPositions.has(`${position.x}:${position.y}`)
+      ) || { x: 50, y: 50 };
+      usedPositions.add(`${freePosition.x}:${freePosition.y}`);
+
+      return {
+        id: player.id,
+        name: player.fullName || player.name,
+        x: freePosition.x,
+        y: freePosition.y
+      };
+    });
+
+    await updateDoc(matchRef, {
+      lineup: syncedLineup,
+      formation: storedData.formation || "4-5-1",
+      lineupConfirmed: syncedLineup.length === MAX_STARTERS,
+      updatedAt: serverTimestamp()
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Kunne ikke synkronisere kamptropp og lagoppstilling:", error);
+    alert("Kunne ikke oppdatere lagoppstillingen. Prøv igjen.");
+    return false;
+  }
+}
+
+document.getElementById("saveSquadBtn").addEventListener("click", async () => {
 
   if (!["NOT_STARTED", "UPCOMING"].includes(matchState.status)) {
     return;
@@ -1820,7 +3079,9 @@ matchState.squad.onField.home = newOnField;
 matchState.lineupConfirmed = true;
 console.log("STATUS:", matchState.status);
 console.log("LINEUP:", matchState.lineupConfirmed);
-saveLiveUpdate();
+const lineupSynced = await syncLineupWithSquad();
+if (!lineupSynced) return;
+await saveLiveUpdate();
 isSquadModalOpen = false;
 document.getElementById("squadModal").classList.add("hidden");
 syncUI();
@@ -1843,6 +3104,7 @@ document
   });
 
 function closeSubModal() {
+  pendingSubOutId = null;
   document.getElementById("subModal").classList.add("hidden");
 }
 
@@ -2069,6 +3331,8 @@ async function saveFinalMatch() {
   const user = auth.currentUser;
   if (!user) return;
 
+  const saveVersion = beginSaveStatus();
+
   let matchRef;
 
   if (matchState.userRole === "coach") {
@@ -2077,7 +3341,10 @@ async function saveFinalMatch() {
     matchRef = getMatchRef();
   }
 
-  if (!matchRef) return;
+  if (!matchRef) {
+    finishSaveStatus(saveVersion, false);
+    return;
+  }
 
   const summary = getMatchSummary();
 
@@ -2085,6 +3352,7 @@ const data = {
   meta: matchState.meta,
   score: matchState.score,
   events: matchState.events,
+  firstHalfActualEndMs: matchState.firstHalfActualEndMs,
   ...summary,
   status: "ENDED",
   updatedAt: serverTimestamp()
@@ -2095,9 +3363,14 @@ if (matchState.meta?.type) {
   data.type = matchState.meta.type;
 }
 
-await setDoc(matchRef, data, { merge: true });
-
+try {
+  await setDoc(matchRef, data, { merge: true });
+  finishSaveStatus(saveVersion, true);
   console.log("Kamp avsluttet:", matchState.matchId);
+} catch (error) {
+  console.error("Kunne ikke lagre kampslutt:", error);
+  finishSaveStatus(saveVersion, false);
+}
 }
 
 async function saveLiveUpdate() {
@@ -2118,6 +3391,8 @@ try {
   return;
 }
 
+  const saveVersion = beginSaveStatus();
+
   const data = {
     score: matchState.score,
     events: matchState.events,
@@ -2129,7 +3404,9 @@ try {
     },
     players: matchState.players.home,
     onField: matchState.squad.onField.home,
-	lineupConfirmed: matchState.lineupConfirmed,
+    lineupConfirmed: matchState.lineupConfirmed,
+    halftimeStartedAt: matchState.halftimeStartedAt,
+    firstHalfActualEndMs: matchState.firstHalfActualEndMs,
     updatedAt: serverTimestamp()
   };
 
@@ -2142,9 +3419,14 @@ try {
     data.type = matchState.meta.type;
   }
 
-  await setDoc(matchRef, data, { merge: true });
-
-  localStorage.setItem("lastMatchState", JSON.stringify(matchState));
+  try {
+    await setDoc(matchRef, data, { merge: true });
+    localStorage.setItem("lastMatchState", JSON.stringify(matchState));
+    finishSaveStatus(saveVersion, true);
+  } catch (error) {
+    console.error("Kunne ikke lagre kampoppdateringen:", error);
+    finishSaveStatus(saveVersion, false);
+  }
 }
 
 
@@ -2156,6 +3438,8 @@ try {
   matchState.status = "NOT_STARTED";
   matchState.period = 1;
   matchState.lineupConfirmed = false;
+  matchState.halftimeStartedAt = null;
+  matchState.firstHalfActualEndMs = null;
 
   matchState.timer.elapsedMs = 0;
   matchState.timer.startTimestamp = null;
@@ -2214,11 +3498,7 @@ document.getElementById("logoutBtn")
   
 newMatchBtn?.addEventListener("click", () => {
   localStorage.removeItem("activeMatchId");
-
-  // 🔥 fjern matchId fra URL
-  window.history.replaceState({}, "", "kamp.html");
-
-  location.reload();
+  window.location.href = "oversikt.html";
 });
   
   window.addEventListener("load", () => {
@@ -2239,9 +3519,15 @@ toggleEventsBtn.addEventListener("click", () => {
 
   const isHidden = eventLog.classList.contains("hidden");
 
-  toggleEventsBtn.textContent = isHidden
-    ? "Vis hendelser"
-    : "Skjul hendelser";
+  toggleEventsBtn.classList.toggle("is-expanded", !isHidden);
+  actionCard.classList.toggle("events-panel-open", !isHidden);
+});
+
+document.addEventListener("click", event => {
+  if (event.target.closest(".event-actions")) return;
+  document.querySelectorAll(".event-action-menu").forEach(menu => {
+    menu.classList.add("hidden");
+  });
 });
 
 // Sett dagens dato og klokkeslett automatisk ved oppstart
@@ -2309,12 +3595,26 @@ async function loadActiveMatch() {
 
   if (data.status === "ENDED") {
     localStorage.removeItem("activeMatchId");
+    window.location.href = "oversikt.html";
     return;
   }
 
+  document.body.classList.remove("overview-return-mode");
+  startScreen.style.display = "none";
+  document.getElementById("match-header").style.display = "";
+  document.getElementById("backBtn")?.classList.remove("hidden");
+  matchReminder.style.display = "";
+
+  // Nye kamper som aldri har vært åpnet i lagoppstillingen skal likevel
+  // starte med den avtalte 4-5-1-oppstillingen og en ferdig kamptropp.
+  const shouldApplyDefaultLineup = !Array.isArray(data.lineup);
+  const effectiveLineup = shouldApplyDefaultLineup
+    ? DEFAULT_451_LINEUP.map(player => ({ ...player }))
+    : data.lineup;
+
   matchState.matchId = matchId;
   matchState.meta = {
-    ourTeam: "",
+    ourTeam: "Samnanger",
     opponent: "",
     date: "",
     startTime: "",
@@ -2337,7 +3637,8 @@ async function loadActiveMatch() {
   ========================= */
 
   matchState.matchId = matchId;
-  matchState.meta = data.meta || {};
+  matchState.meta.ourTeam = matchState.meta.ourTeam?.trim() || "Samnanger";
+  matchState.meta.opponent = matchState.meta.opponent?.trim() || "Motstander";
 
 // 🔥 FIX: støtt begge navn
 matchState.meta.venue =
@@ -2369,7 +3670,75 @@ awayTeamInput.value =
   matchState.score = data.score || { our: 0, their: 0 };
   matchState.events = data.events || [];
 
-matchState.lineupConfirmed = data.lineupConfirmed ?? false;
+  // Eldre hendelser kan inneholde fullt navn fra Firestore.
+  // Faste spillere skal vises med samme kortnavn som i resten av kampbildet.
+  const shortNameByStoredName = new Map();
+
+  const storedPlayerNames = [
+    ...Object.values(data.players || {}),
+    ...(Array.isArray(data.lineup) ? data.lineup : [])
+  ];
+
+  storedPlayerNames.forEach(storedPlayer => {
+    if (!storedPlayer?.name) return;
+
+    const firstName = storedPlayer.name.split(" ")[0].trim().toLowerCase();
+    const squadPlayer = HOME_SQUAD.find(
+      player => player.name.trim().toLowerCase() === firstName
+    );
+
+    if (squadPlayer && storedPlayer.name !== squadPlayer.name) {
+      shortNameByStoredName.set(storedPlayer.name, squadPlayer.name);
+    }
+  });
+
+  matchState.events.forEach(event => {
+    shortNameByStoredName.forEach((shortName, storedName) => {
+      if (event.playerName === storedName) {
+        event.playerName = shortName;
+      }
+
+      if (event.rawText) {
+        event.rawText = event.rawText.split(storedName).join(shortName);
+      }
+    });
+
+    if (event.rawText) {
+      event.text = rebuildEventText(event);
+    }
+  });
+
+  // Reparer eldre målhendelser som ble lagret med manglende lagnavn.
+  matchState.events.forEach(event => {
+    if (event.type !== "goal") return;
+    if (!String(event.rawText || event.text || "").includes("(undefined)")) return;
+
+    const teamName = event.team === "home"
+      ? matchState.meta.ourTeam
+      : matchState.meta.opponent;
+
+    event.rawText = `⚽ ${event.minute} – ${event.playerName} (${teamName})`;
+    event.text = rebuildEventText(event);
+  });
+
+matchState.lineupConfirmed = data.lineupConfirmed ?? shouldApplyDefaultLineup;
+matchState.halftimeStartedAt = data.halftimeStartedAt || null;
+matchState.firstHalfActualEndMs = Number.isFinite(data.firstHalfActualEndMs)
+  ? data.firstHalfActualEndMs
+  : null;
+
+// Eldre kamper har ikke lagret når pausen startet.
+if (
+  ["HALFTIME", "PAUSED"].includes(data.status) &&
+  !matchState.halftimeStartedAt
+) {
+  matchState.halftimeStartedAt = Date.now();
+}
+
+// Les status og lagret kamptid før spillerintervallene gjenopprettes.
+matchState.period = data.period || 1;
+matchState.status = data.status || "NOT_STARTED";
+matchState.timer.elapsedMs = data.timer?.elapsedMs || 0;
 
   /* =========================
      PLAYERS (KJERNE)
@@ -2382,9 +3751,10 @@ HOME_SQUAD.forEach(p => {
   matchState.players.home[p.id] = {
     id: p.id,
     name: p.name,
-    present: false,
+    present: shouldApplyDefaultLineup,
     starter: false,
     intervals: [],
+    extraPlayingTimeMs: 0,
     cards: []
   };
 });
@@ -2401,98 +3771,181 @@ if (data.players) {
     );
 
     if (squadPlayer) {
-      // vanlig spiller
+      // Behold hele den lagrede spillerstatusen ved gjenoppretting.
       matchState.players.home[squadPlayer.id] = {
         ...matchState.players.home[squadPlayer.id],
-        present: p.present === true
+        ...p,
+        id: squadPlayer.id,
+        name: squadPlayer.name,
+        fullName: p.fullName || p.name,
+        present: p.present === true,
+        starter: p.starter === true,
+        intervals: Array.isArray(p.intervals) ? p.intervals : [],
+        cards: Array.isArray(p.cards) ? p.cards : []
       };
     } else {
-      // 🔥 NY: lånespiller
+      // Lånespillere må også få tilbake kort, intervaller og status.
       matchState.players.home[id] = {
-        id: id,
+        ...p,
+        id,
         name: p.name,
-        present: true,
-        starter: false,
-        intervals: [],
-        cards: []
+        fullName: p.fullName || p.name,
+        present: p.present === true,
+        starter: p.starter === true,
+        intervals: Array.isArray(p.intervals) ? p.intervals : [],
+        cards: Array.isArray(p.cards) ? p.cards : []
       };
     }
   });
 }
 
-  // 2️⃣ Gå gjennom lineup og sett riktig spiller
-const hasSavedStarters =
-  Object.values(matchState.players.home || {})
-    .some(p => p.starter);
+// Oppgrader eldre byttehendelser fra tekst til strukturerte data.
+matchState.events.forEach(event => {
+  if (event.type === "substitution") return;
 
-if (!hasSavedStarters && data.lineup && data.lineup.length > 0) {
+  const rawText = event.rawText || "";
+  const match = rawText.match(
+    /^[^0-9]*(\d{1,3})(?:\s*\+\s*(\d{1,2}))?\s*[–-]\s*(.+?)\s+ut,\s*(.+?)\s+inn$/u
+  );
+  if (!match) return;
 
-  data.lineup.forEach(p => {
-    if (!p.name) return;
+  const baseMinute = Number(match[1]);
+  const overtimeMinute = Number(match[2] || 0);
+  const outName = match[3].trim();
+  const inName = match[4].trim();
+  const players = Object.values(matchState.players.home);
+  const outPlayer = players.find(player => player.name === outName);
+  const inPlayer = players.find(player => player.name === inName);
+  if (!outPlayer || !inPlayer) return;
 
-    const firstName = p.name.split(" ")[0].trim().toLowerCase();
-
-    const squadPlayer = HOME_SQUAD.find(
-      s => s.name.trim().toLowerCase() === firstName
+  const sharedTimes = outPlayer.intervals
+    .map(interval => interval.out)
+    .filter(timeMs =>
+      timeMs != null &&
+      inPlayer.intervals.some(interval => interval.in === timeMs)
     );
+  if (sharedTimes.length === 0) return;
 
-    if (!squadPlayer) {
-      console.warn("Fant ikke spiller:", p.name);
+  const approximateTimeMs = (baseMinute + overtimeMinute) * 60 * 1000;
+  const timeMs = sharedTimes.reduce((closest, candidate) =>
+    Math.abs(candidate - approximateTimeMs) < Math.abs(closest - approximateTimeMs)
+      ? candidate
+      : closest
+  );
+  if (Math.abs(timeMs - approximateTimeMs) > 60 * 1000) return;
+
+  event.type = "substitution";
+  event.outPlayerId = outPlayer.id;
+  event.outPlayerName = outPlayer.name;
+  event.inPlayerId = inPlayer.id;
+  event.inPlayerName = inPlayer.name;
+  event.period = baseMinute <= getHalfLengthMs() / 60000 ? 1 : 2;
+  event.timeMs = timeMs;
+  event.minute = overtimeMinute > 0
+    ? `${baseMinute} + ${overtimeMinute}`
+    : String(baseMinute);
+});
+
+const isPreMatch = ["NOT_STARTED", "UPCOMING"].includes(matchState.status);
+const allLoadedPlayers = Object.values(matchState.players.home);
+const lineupPlayerKeys = new Set(
+  (effectiveLineup || []).map(player => getLineupPlayerKey(player.name))
+);
+
+matchState.squad.onField.home = [];
+
+if (isPreMatch) {
+  // Før kamp er lagoppstillingen alltid fasiten. Gamle eller delvis lagrede
+  // starter-flagg skal aldri kunne gi 6, 7 eller et tilfeldig antall startere.
+  allLoadedPlayers.forEach(player => {
+    const isInLineup = lineupPlayerKeys.has(getLineupPlayerKey(player.name));
+    player.starter = isInLineup;
+    if (isInLineup) player.present = true;
+  });
+
+  matchState.squad.onField.home = allLoadedPlayers
+    .filter(player => player.starter === true)
+    .map(player => player.id);
+  matchState.lineupConfirmed =
+    matchState.squad.onField.home.length === MAX_STARTERS;
+} else {
+  // Under en pågående kamp er onField den faktiske banen etter bytter.
+  const validStoredOnField = Array.isArray(data.onField)
+    ? data.onField.filter(id => matchState.players.home[id]?.present === true)
+    : [];
+
+  if (validStoredOnField.length > 0) {
+    matchState.squad.onField.home = validStoredOnField;
+  } else if (data.squad?.starters?.length) {
+    matchState.squad.onField.home = data.squad.starters
+      .map(player => player.id)
+      .filter(id => matchState.players.home[id]?.present === true);
+  } else {
+    matchState.squad.onField.home = allLoadedPlayers
+      .filter(player => player.present === true && player.starter === true)
+      .map(player => player.id);
+  }
+}
+
+if (shouldApplyDefaultLineup) {
+  try {
+    await updateDoc(matchRef, {
+      lineup: effectiveLineup,
+      players: matchState.players.home,
+      onField: matchState.squad.onField.home,
+      lineupConfirmed: true,
+      formation: "4-5-1",
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    // Oppstillingen er allerede klar lokalt. En midlertidig lagringsfeil skal
+    // ikke hindre at kampregistreringen åpnes; neste lagring prøver igjen.
+    console.error("Kunne ikke lagre standardoppstillingen:", error);
+  }
+} else if (isPreMatch) {
+  try {
+    await updateDoc(matchRef, {
+      players: matchState.players.home,
+      onField: matchState.squad.onField.home,
+      lineupConfirmed: matchState.lineupConfirmed,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Kunne ikke reparere starterne fra lagoppstillingen:", error);
+  }
+}
+  
+// Bare en pågående omgang skal ha åpne spilleintervaller.
+if (["LIVE", "TEMP_STOPPED"].includes(matchState.status)) {
+  matchState.squad.onField.home.forEach(id => {
+    const player = matchState.players.home[id];
+
+    if (!player || !player.intervals) return;
+
+    if (player.intervals.length === 0) {
+      player.intervals.push({
+        in: matchState.timer.elapsedMs,
+        out: null
+      });
       return;
     }
 
-    const player = matchState.players.home[squadPlayer.id];
+    const last = player.intervals.at(-1);
 
-    player.present = true;
-    player.starter = true;
-
-    matchState.squad.onField.home.push(player.id);
+    if (last.out !== null) {
+      player.intervals.push({
+        in: matchState.timer.elapsedMs,
+        out: null
+      });
+    }
   });
 }
-
-  /* =========================
-     ON FIELD (VIKTIG)
-  ========================= */
-
-if (data.onField && data.onField.length > 0) {
-  matchState.squad.onField.home = data.onField;
-} else if (data.squad?.starters?.length) {
-  matchState.squad.onField.home = data.squad.starters.map(p => p.id);
-}
-  
-  // 🔥 sørg for at alle på banen har aktivt interval
-matchState.squad.onField.home.forEach(id => {
-  const player = matchState.players.home[id];
-
-  if (!player || !player.intervals) return;
-
-  if (player.intervals.length === 0) {
-    player.intervals.push({
-      in: matchState.timer.elapsedMs,
-      out: null
-    });
-    return;
-  }
-
-  const last = player.intervals.at(-1);
-
-  if (last.out !== null) {
-    player.intervals.push({
-      in: matchState.timer.elapsedMs,
-      out: null
-    });
-  }
-});
 
   updateControls();
 
   /* =========================
      STATUS + TIMER
   ========================= */
-
-  matchState.period = data.period || 1;
-  matchState.status = data.status || "NOT_STARTED";
-  matchState.timer.elapsedMs = data.timer?.elapsedMs || 0;
 
 if (matchState.status === "LIVE") {
 
@@ -2534,13 +3987,15 @@ if (overtimeMs > 0) {
   startClock();
 }
 
-  if (matchState.status === "PAUSED") {
+  if (["TEMP_STOPPED", "HALFTIME", "PAUSED"].includes(matchState.status)) {
     matchState.timer.startTimestamp = null;
 
     document.getElementById("game-clock").textContent =
       formatTime(matchState.timer.elapsedMs);
 
-    periodIndicator.textContent = "Pause i kampen";
+    periodIndicator.textContent = matchState.status === "TEMP_STOPPED"
+      ? `${matchState.period}. omgang – klokken stoppet`
+      : "Pause mellom omgangene";
   }
 
 
@@ -2554,7 +4009,7 @@ syncUI();
 teams.style.display = "flex";
 populateGoalScorers("home");
 
-if (matchState.status === "LIVE" || matchState.status === "PAUSED") {
+if (["LIVE", "TEMP_STOPPED", "HALFTIME", "PAUSED"].includes(matchState.status)) {
   document.getElementById("matchUI")?.classList.remove("hidden");
 }
 
@@ -2627,18 +4082,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 👉 START: vis KUN startknapp
-  startScreen.style.display = "block";
+  showOverviewReturnMode();
   preMatch.classList.add("hidden");
   teams.style.display = "none"; // 🔥 viktig
-
-  startNewMatchBtn.addEventListener("click", () => {
-
-    matchState.status = "UPCOMING";
-
-    startScreen.style.display = "none";
-
-    updateUIByStatus();
-  });
 
 });
 

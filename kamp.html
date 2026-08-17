@@ -26,6 +26,13 @@
 
 <div id="app">
 
+  <div id="matchReminder" class="match-reminder hidden" role="status" aria-live="assertive">
+    <span id="matchReminderText"></span>
+    <button id="dismissReminderBtn" type="button">Skjul</button>
+  </div>
+
+  <div id="saveStatus" class="save-status hidden" role="status" aria-live="polite"></div>
+
   <!-- KAMPHEADER -->
   <header id="match-header">
   <h1 id="app-title">Kampregistrering</h1>
@@ -91,9 +98,25 @@
 
 <div id="startScreen">
   <div class="start-container">
-    <button id="startNewMatchBtn" class="primary-btn">
-      Start ny kamp
-    </button>
+    <div class="return-card">
+      <div class="return-icon" aria-hidden="true">✓</div>
+      <p class="return-kicker">Kampregistrering</p>
+      <h2>Klar for neste kamp</h2>
+      <p class="return-text">
+        Gå tilbake til oversikten for å se kampene eller gjøre klar den neste.
+      </p>
+      <section id="finalEventReview" class="final-event-review hidden" aria-label="Kamphendelser">
+        <div class="final-event-header">
+          <h3>Kamphendelser</h3>
+          <span id="finalEventCount"></span>
+        </div>
+        <div id="finalEventList" class="final-event-list"></div>
+      </section>
+      <a id="startNewMatchBtn" class="primary-btn" href="oversikt.html">
+        <span>Tilbake til oversikt</span>
+        <span class="return-arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
   </div>
 </div>
 
@@ -104,12 +127,33 @@
   <div id="game-clock">00:00</div>
 
   <div id="scoreboard">
-    <span id="ourScore">0</span>
+    <span class="score-team score-team-home">
+      <span id="scoreHomeName" class="score-team-name">Samnanger</span>
+      <span id="ourScore">0</span>
+    </span>
     <span class="score-separator">–</span>
-    <span id="theirScore">0</span>
+    <span class="score-team score-team-away">
+      <span id="scoreAwayName" class="score-team-name">Motstander</span>
+      <span id="theirScore">0</span>
+    </span>
   </div>
 
   <div id="period-indicator">1. omgang</div>
+</section>
+
+<!-- RASKE MÅLKNAPPER -->
+<section id="goal-actions">
+  <div class="goal-row">
+    <button class="goalBtn goal-home" data-team="home">
+      <span class="goal-action-label">⚽ MÅL</span>
+      <span class="goal-team-name">Samnanger</span>
+    </button>
+
+    <button class="goalBtn goal-away" data-team="away">
+      <span class="goal-action-label">⚽ MÅL</span>
+      <span class="goal-team-name">Motstander</span>
+    </button>
+  </div>
 </section>
 
   <!-- KAMPKONTROLLER -->
@@ -118,65 +162,51 @@
   <!-- KAMPKONTROLLER -->
   <section id="controls">
     <button id="startBtn">Start</button>
-    <button id="pauseBtn">Pause</button>
+    <button id="pauseBtn">Stopp klokken</button>
+    <button id="halfTimeBtn">Avslutt 1. omgang</button>
     <button id="resumeBtn">Gjenoppta</button>
     <button id="endBtn">Slutt</button>
-    <button id="adjustStartBtn">Juster starttid</button>
   </section>
 
 
   
   <section id="action-card">
 
-  <!-- MÅL -->
-<div class="goal-section">
-
-  <div class="goal-title">MÅL</div>
-
-  <div class="goal-row">
-
-    <div class="goal-col">
-      <button class="goalBtn" data-team="home">Samnanger</button>
-    </div>
-
-    <div class="goal-col">
-      <button class="goalBtn" data-team="away">Motstander</button>
-    </div>
-
-  </div>
-
-</div>
-
   <!-- BYTTE + KORT -->
   <div class="action-row">
-    <button id="subBtn">Bytte</button>
-    <button id="cardBtn">Kort</button>
+    <button id="subBtn"><span class="quick-action-icon substitution-icon">↔</span><span>Bytte</span></button>
+    <button id="cardBtn"><span class="quick-action-icon card-action-icon">■</span><span>Kort</span></button>
   </div>
   
     <!-- SPILLETID -->
-    <button id="togglePlayingTimeBtn" class="secondary-btn">
-      Vis spilletid
+    <button id="togglePlayingTimeBtn" class="secondary-btn disclosure-btn">
+      Spilletid
     </button>
     <div id="playingTimePanel" class="playing-time hidden">
+      <p class="playing-time-rule">Minstekrav: 25 minutter per spiller</p>
       <ul id="playingTimeList"></ul>
     </div>
 
   <!-- HENDELSER -->
-  <button id="toggleEventsBtn" class="secondary-btn full-width">
-    Vis hendelser
+  <button id="toggleEventsBtn" class="secondary-btn full-width disclosure-btn">
+    Hendelser
   </button>
+
+  <details class="more-actions">
+    <summary>••• Flere</summary>
+    <button id="adjustStartBtn" type="button">Korriger kampklokke</button>
+  </details>
 
 </section>
 
 </div>
 
 <!-- NY KAMP -->
-<button id="newMatchBtn" class="hidden">Ny kamp</button>
+<button id="newMatchBtn" class="hidden">Tilbake til oversikt</button>
 
   <!-- HENDELSESLOGG -->
 
   <section id="event-log" class="hidden">
-    <h3>Hendelser</h3>
     <ul id="eventList"></ul>
   </section>
 </div>
@@ -242,34 +272,25 @@
    
    <!-- MÅL-MODAL -->
 <div id="goalModal" class="modal hidden">
-  <div class="modal-content">
+  <div class="modal-content goal-modal-content">
 
-    <h3>Registrer mål</h3>
+    <h3 id="goalModalTitle">Hvem scoret?</h3>
+    <p class="goal-modal-help" id="goalModalHelp">Trykk på spilleren for å registrere målet.</p>
 
-    <!-- Tid -->
-    <div class="modal-section">
-      <label>
-        <input type="radio" name="goalTimeType" value="now" checked>
-        Mål nå
-      </label>
+    <div class="goal-time-bar">
+      <span id="goalTimeSummary" class="goal-time-summary">Nå</span>
+      <button type="button" id="toggleManualGoalTimeBtn" class="goal-time-edit-btn">Endre tidspunkt</button>
+    </div>
 
-      <label>
-        <input type="radio" name="goalTimeType" value="manual">
-        Manuell tid
-      </label>
-
-      <input
-  type="text"
-  id="manualGoalTime"
-  placeholder="minutt (f.eks 12)"
-  disabled
-/>
+    <div id="manualGoalTimeWrapper" class="goal-manual-time hidden">
+      <label for="manualGoalTime">Kampminutt</label>
+      <input type="text" id="manualGoalTime" inputmode="numeric" placeholder="f.eks. 12 eller 70 + 2" />
     </div>
 
     <!-- Spiller -->
     <div class="modal-section" id="homeScorerWrapper">
-      <label for="goalScorer">Målscorer</label>
-      <select id="goalScorer">
+      <div id="goalScorerGrid" class="goal-scorer-grid"></div>
+      <select id="goalScorer" class="hidden" aria-hidden="true" tabindex="-1">
         <option value="">Velg spiller</option>
       </select>
     </div>
@@ -290,30 +311,80 @@
     <!-- Handlinger -->
     <div class="modal-actions">
       <button id="cancelGoalBtn">Avbryt</button>
-      <button id="confirmGoalBtn">Registrer mål</button>
+      <button id="confirmGoalBtn" class="hidden">Registrer mål</button>
     </div>
 
   </div>
 </div>
 
-<!-- MODAL: BYTTE -->
-<div class="modal hidden" id="subModal">
+<!-- MODAL: REDIGER MÅL -->
+<div id="editGoalModal" class="modal hidden">
   <div class="modal-content">
-    <h3>Spillerbytte</h3>
+    <h3>Rediger mål</h3>
 
     <div class="modal-section">
-      <label for="subOutSelect">Spiller ut</label>
-      <select id="subOutSelect"></select>
+      <label for="editGoalMinute">Kampminutt</label>
+      <input id="editGoalMinute" type="text" placeholder="f.eks. 12 eller 35 + 2" />
     </div>
 
-    <div class="modal-section">
-      <label for="subInSelect">Spiller inn</label>
-      <select id="subInSelect"></select>
+    <div id="editHomeScorerWrapper" class="modal-section">
+      <label for="editGoalScorer">Målscorer</label>
+      <select id="editGoalScorer"></select>
+    </div>
+
+    <div id="editAwayScorerWrapper" class="modal-section hidden">
+      <label for="editOpponentScorer">Målscorer (valgfritt)</label>
+      <input id="editOpponentScorer" type="text" placeholder="Navn eller draktnr" />
     </div>
 
     <div class="modal-actions">
+      <button id="cancelEditGoalBtn">Avbryt</button>
+      <button id="saveEditGoalBtn">Lagre endring</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: BYTTE -->
+<div class="modal hidden" id="subModal">
+  <div class="modal-content sub-modal-content">
+    <h3>Spillerbytte</h3>
+
+    <p id="subInstruction" class="sub-instruction">Hvem skal ut?</p>
+
+    <div class="sub-time-bar">
+      <span id="subTimeSummary" class="sub-time-summary">Bytte nå</span>
+      <button type="button" id="toggleManualSubTimeBtn" class="sub-time-edit-btn">Endre tidspunkt</button>
+    </div>
+
+    <div id="manualSubTimeWrapper" class="sub-manual-time hidden">
+      <label for="manualSubTime">Kampminutt</label>
+      <input id="manualSubTime" type="text" inputmode="numeric" placeholder="f.eks. 48 eller 70 + 2" />
+    </div>
+
+    <div id="subPlayerGrid" class="sub-player-grid"></div>
+
+    <button type="button" id="subBackBtn" class="sub-back-btn hidden">← Velg en annen spiller ut</button>
+
+    <div class="modal-actions">
       <button id="cancelSubBtn">Avbryt</button>
-      <button id="confirmSubBtn">Registrer bytte</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: REDIGER BYTTETID -->
+<div id="editSubTimeModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Rediger tidspunkt for bytte</h3>
+    <p id="editSubSummary" class="modal-hint"></p>
+
+    <div class="modal-section">
+      <label for="editSubMinute">Kampminutt</label>
+      <input id="editSubMinute" type="text" placeholder="f.eks. 28 eller 70 + 2" />
+    </div>
+
+    <div class="modal-actions">
+      <button id="cancelEditSubBtn">Avbryt</button>
+      <button id="saveEditSubBtn">Lagre endring</button>
     </div>
   </div>
 </div>
@@ -361,7 +432,7 @@
 <div id="adjustTimeModal" class="modal hidden">
   <div class="modal-content">
 
-    <h3>Juster starttid</h3>
+    <h3>Korriger kampklokke</h3>
 	<p class="modal-hint">
   Angi hvor mange minutter som er spilt i denne omgangen
 </p>
@@ -378,6 +449,46 @@
       <button id="cancelAdjustTimeBtn">Avbryt</button>
     </div>
 
+  </div>
+</div>
+
+<div id="halfTimeEndModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Avslutt 1. omgang</h3>
+    <p class="modal-hint">
+      Angi når omgangen faktisk sluttet. Bruk for eksempel 35 eller 35 + 2.
+    </p>
+
+    <div class="modal-section">
+      <label for="halfTimeEndInput">Sluttminutt</label>
+      <input id="halfTimeEndInput" type="text" inputmode="numeric" placeholder="35 eller 35 + 2" />
+      <p id="halfTimeEndClockHint" class="modal-hint"></p>
+    </div>
+
+    <div class="modal-actions">
+      <button id="cancelHalfTimeEndBtn" type="button">Avbryt</button>
+      <button id="confirmHalfTimeEndBtn" type="button">Start pause</button>
+    </div>
+  </div>
+</div>
+
+<div id="endTimeModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Avslutt kampen</h3>
+    <p class="modal-hint">
+      Angi faktisk sluttminutt. Bruk for eksempel 70 eller 70 + 3.
+    </p>
+
+    <div class="modal-section">
+      <label for="endTimeInput">Sluttminutt</label>
+      <input id="endTimeInput" type="text" inputmode="numeric" placeholder="70 eller 70 + 3" />
+      <p id="endTimeClockHint" class="modal-hint"></p>
+    </div>
+
+    <div class="modal-actions">
+      <button id="cancelEndTimeBtn" type="button">Avbryt</button>
+      <button id="confirmEndTimeBtn" type="button">Avslutt kamp</button>
+    </div>
   </div>
 </div>
 

@@ -330,6 +330,112 @@ cancelBtn.classList.add("eventCancelBtn");
 
     list.appendChild(row);
   });
+  
+  const addBtn = document.getElementById("addEventBtn");
+
+if(addBtn){
+  addBtn.onclick = () => {
+
+    const row = document.createElement("div");
+    row.className = "eventRow";
+
+    const minuteInput = document.createElement("input");
+    minuteInput.type = "number";
+    minuteInput.placeholder = "Min";
+    minuteInput.style.width = "60px";
+
+    const typeSelect = document.createElement("select");
+    typeSelect.innerHTML = `
+      <option value="goal">⚽ Mål</option>
+      <option value="yellow">🟨 Gult kort</option>
+      <option value="red">🟥 Rødt kort</option>
+      <option value="sub">🔁 Bytte</option>
+      <option value="custom">📝 Annet</option>
+    `;
+
+    const teamSelect = document.createElement("select");
+    teamSelect.innerHTML = `
+      <option value="home">Vårt lag</option>
+      <option value="away">Motstander</option>
+    `;
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Skriv hendelse...";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "✔";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "✖";
+
+    row.appendChild(minuteInput);
+    row.appendChild(typeSelect);
+    row.appendChild(teamSelect);
+    row.appendChild(input);
+    row.appendChild(saveBtn);
+    row.appendChild(cancelBtn);
+
+    const list = document.getElementById("eventsList");
+    list.prepend(row);
+
+    cancelBtn.onclick = () => renderEvents(data);
+
+    saveBtn.onclick = async () => {
+
+      const text = input.value.trim();
+      const minute = Number(minuteInput.value);
+      const type = typeSelect.value;
+      const team = teamSelect.value;
+
+      if(!text) return;
+      if(!Number.isFinite(minute)) return;
+
+      if(!data.events) data.events = [];
+
+      const symbols = {
+        goal: "⚽",
+        yellow: "🟨",
+        red: "🟥",
+        sub: "🔁",
+        custom: "📝"
+      };
+
+      const newEvent = {
+        minute,
+        type,
+        team,
+        text: `${new Date().toLocaleTimeString("no-NO", {
+  hour: "2-digit",
+  minute: "2-digit"
+})} – ${symbols[type]} ${minute} – ${text}`
+      };
+
+      data.events.push(newEvent);
+
+      data.events.sort((a, b) => {
+        const ma = Number(a.minute ?? 999);
+        const mb = Number(b.minute ?? 999);
+        return ma - mb;
+      });
+
+      const score = calculateScore(data.events);
+
+      await updateDoc(matchRef, {
+        events: data.events,
+        score: score,
+        updatedAt: serverTimestamp(),
+        editedBy: coachUid
+      });
+
+      data.score = score;
+      ourEl.value = score.our;
+      theirEl.value = score.their;
+
+      renderEvents(data);
+    };
+  };
+}
 }
 
 const toggleBtn = document.getElementById("toggleEventsBtn");
