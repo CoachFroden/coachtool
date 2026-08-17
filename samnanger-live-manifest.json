@@ -1,8 +1,8 @@
 {
   "id": "./kamp-live.html?app=1",
-  "name": "Samnanger Live",
-  "short_name": "Samnanger Live",
-  "description": "Følg Samnanger-kampen med resultat, klokke og hendelser direkte.",
+  "name": "Samnanger G14 LIVE",
+  "short_name": "G14 LIVE",
+  "description": "Følg Samnanger G14 med resultat, klokke og hendelser direkte.",
   "start_url": "./kamp-live.html?app=1",
   "scope": "./",
   "display": "standalone",
@@ -12,13 +12,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "samnanger-live-icon-192.png",
+      "src": "samnanger-g14-live-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "samnanger-live-icon-512.png",
+      "src": "samnanger-g14-live-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
