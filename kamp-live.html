@@ -12,7 +12,7 @@
   <link rel="manifest" href="samnanger-live-manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="samnanger-g14-live-icon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="samnanger-g14-live-icon-180.png">
-  <link rel="stylesheet" href="kamp-live.css?v=20260817-5">
+  <link rel="stylesheet" href="kamp-live.css?v=20260817-6">
 </head>
 <body>
   <main class="live-shell">
@@ -28,6 +28,10 @@
         <i></i><span>Kobler til</span>
       </span>
     </header>
+
+    <a id="backToLive" class="back-to-live hidden" href="kamp-live.html?app=1">
+      <span aria-hidden="true">←</span> Tilbake til nåværende kamp
+    </a>
 
     <section id="matchCard" class="match-card" aria-live="polite">
       <div class="match-status-line">
@@ -83,12 +87,23 @@
 
     <section id="pageMessage" class="page-message hidden" role="alert"></section>
 
+    <details id="archiveCard" class="archive-card hidden">
+      <summary>
+        <span>
+          <small>Kamparkiv</small>
+          <strong>Tidligere kamper</strong>
+        </span>
+        <span id="archiveCount" class="archive-count">0</span>
+      </summary>
+      <div id="archiveList" class="archive-list"></div>
+    </details>
+
     <footer>
       <span><i></i> Oppdateres automatisk</span>
       <small>Du trenger ikke laste siden på nytt.</small>
     </footer>
   </main>
 
-  <script type="module" src="kamp-live.js?v=20260817-5"></script>
+  <script type="module" src="kamp-live.js?v=20260817-6"></script>
 </body>
 </html>

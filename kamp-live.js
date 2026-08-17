@@ -4,6 +4,10 @@ import { initializeApp } from
 import {
   getFirestore,
   doc,
+  collection,
+  query,
+  orderBy,
+  limit,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -23,6 +27,8 @@ const pageParams = new URLSearchParams(window.location.search);
 const requestedMatchId = pageParams.get("matchId");
 
 const elements = {
+  matchCard: document.getElementById("matchCard"),
+  eventsCard: document.querySelector(".events-card"),
   connectionBadge: document.getElementById("connectionBadge"),
   statusBadge: document.getElementById("statusBadge"),
   matchDate: document.getElementById("matchDate"),
@@ -38,10 +44,15 @@ const elements = {
   eventCount: document.getElementById("eventCount"),
   eventList: document.getElementById("eventList"),
   emptyEvents: document.getElementById("emptyEvents"),
-  pageMessage: document.getElementById("pageMessage")
+  pageMessage: document.getElementById("pageMessage"),
+  backToLive: document.getElementById("backToLive"),
+  archiveCard: document.getElementById("archiveCard"),
+  archiveCount: document.getElementById("archiveCount"),
+  archiveList: document.getElementById("archiveList")
 };
 
 let matchData = null;
+let featuredMatchData = null;
 let clockInterval = null;
 
 function timestampToMs(value) {
@@ -253,6 +264,8 @@ function renderEvents(data, fixture) {
 
 function renderMatch(data) {
   matchData = data;
+  elements.matchCard.classList.remove("hidden");
+  elements.eventsCard.classList.remove("hidden");
   const fixture = getFixture(data);
   const status = getStatusInfo(data.status, data.period);
 
@@ -284,21 +297,72 @@ function setConnectionState(state, text) {
   elements.connectionBadge.querySelector("span").textContent = text;
 }
 
-function showPageMessage(message) {
+function showPageMessage(message, tone = "error") {
   elements.pageMessage.textContent = message;
+  elements.pageMessage.classList.toggle("is-info", tone === "info");
   elements.pageMessage.classList.remove("hidden");
+}
+
+function getOsloDateKey(value = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Oslo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(value);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getMatchDateKey(data) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(data.meta?.date || "")) {
+    return data.meta.date;
+  }
+
+  const updatedAt = timestampToMs(data.updatedAt);
+  return updatedAt ? getOsloDateKey(new Date(updatedAt)) : "";
+}
+
+function shouldHideCompletedMatch(data) {
+  return String(data.status || "").toUpperCase() === "ENDED" &&
+    getMatchDateKey(data) < getOsloDateKey();
+}
+
+function showNoActiveMatch() {
+  matchData = null;
+  elements.matchCard.classList.add("hidden");
+  elements.eventsCard.classList.add("hidden");
+  setConnectionState("is-connecting", "Klar");
+  showPageMessage(
+    "Ingen kamp pågår akkurat nå. Tidligere resultater og hendelser finner du nedenfor.",
+    "info"
+  );
+  document.title = "Samnanger G14 LIVE";
 }
 
 function handleMatchSnapshot(snapshot) {
   if (!snapshot.exists()) {
     setConnectionState("is-connecting", "Venter");
-    showPageMessage("Livevisningen er ikke startet ennå. Siden oppdateres automatisk.");
+    if (!requestedMatchId) {
+      showNoActiveMatch();
+    } else {
+      showPageMessage("Livevisningen er ikke startet ennå. Siden oppdateres automatisk.");
+    }
     return;
+  }
+
+  const data = snapshot.data();
+  if (!requestedMatchId) {
+    featuredMatchData = data;
+    if (shouldHideCompletedMatch(data)) {
+      showNoActiveMatch();
+      return;
+    }
   }
 
   elements.pageMessage.classList.add("hidden");
   setConnectionState("is-live", "Tilkoblet");
-  renderMatch(snapshot.data());
+  renderMatch(data);
 }
 
 function subscribeToRequestedMatch(matchId) {
@@ -318,10 +382,69 @@ function subscribeToFeaturedMatch() {
   subscribeToRequestedMatch("samnanger-g14-live");
 }
 
+function renderArchive(matches) {
+  elements.archiveList.replaceChildren();
+  elements.archiveCount.textContent = String(matches.length);
+  elements.archiveCard.classList.toggle("hidden", matches.length === 0);
+
+  matches.forEach(match => {
+    const fixture = getFixture(match.data);
+    const link = document.createElement("a");
+    link.className = "archive-match";
+    link.href = `kamp-live.html?matchId=${encodeURIComponent(match.id)}`;
+
+    const copy = document.createElement("span");
+    copy.className = "archive-match-copy";
+    const title = document.createElement("strong");
+    title.textContent = `${fixture.homeTeam} – ${fixture.awayTeam}`;
+    const meta = document.createElement("small");
+    meta.textContent = [
+      formatDate(match.data.meta?.date),
+      getMatchTypeLabel(match.data.meta?.type)
+    ].filter(Boolean).join(" · ");
+    copy.append(title, meta);
+
+    const result = document.createElement("strong");
+    result.className = "archive-result";
+    result.textContent = `${fixture.homeScore}–${fixture.awayScore}`;
+
+    const arrow = document.createElement("span");
+    arrow.className = "archive-arrow";
+    arrow.textContent = "›";
+
+    link.append(copy, result, arrow);
+    elements.archiveList.appendChild(link);
+  });
+}
+
+function subscribeToArchive() {
+  const archiveQuery = query(
+    collection(db, "publicMatches"),
+    orderBy("updatedAt", "desc"),
+    limit(40)
+  );
+
+  onSnapshot(
+    archiveQuery,
+    snapshot => {
+      const matches = snapshot.docs
+        .filter(matchDoc => matchDoc.id !== "samnanger-g14-live")
+        .map(matchDoc => ({ id: matchDoc.id, data: matchDoc.data() }))
+        .filter(match => String(match.data.status || "").toUpperCase() === "ENDED");
+      renderArchive(matches);
+    },
+    error => {
+      console.error("Kunne ikke hente tidligere kamper:", error);
+    }
+  );
+}
+
 if (requestedMatchId) {
+  elements.backToLive.classList.remove("hidden");
   subscribeToRequestedMatch(requestedMatchId);
 } else {
   subscribeToFeaturedMatch();
+  subscribeToArchive();
 }
 
 if ("serviceWorker" in navigator) {
@@ -332,7 +455,18 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-clockInterval = setInterval(renderClock, 1000);
+clockInterval = setInterval(() => {
+  if (!requestedMatchId && featuredMatchData && shouldHideCompletedMatch(featuredMatchData)) {
+    if (matchData) showNoActiveMatch();
+    return;
+  }
+  renderClock();
+}, 1000);
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) renderClock();
+  if (document.hidden) return;
+  if (!requestedMatchId && featuredMatchData && shouldHideCompletedMatch(featuredMatchData)) {
+    showNoActiveMatch();
+  } else {
+    renderClock();
+  }
 });
