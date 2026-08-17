@@ -86,6 +86,8 @@ async function safeSetDoc(ref, data, options = {}) {
 
 let matchStarted = false;
 let isSquadModalOpen = false;
+let squadDraftSnapshot = null;
+let pendingNewLoanPlayerId = null;
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -715,55 +717,93 @@ const teams = document.querySelector(".teams");
 const goalActions = document.getElementById("goal-actions");
 const actionCard = document.getElementById("action-card"); 
   
-  const loanBtn = document.getElementById("loanPlayersBtn");
+const loanBtn = document.getElementById("loanPlayersBtn");
 const loanModal = document.getElementById("loanModal");
-const loanCountInput = document.getElementById("loanCountInput");
-const loanNamesContainer = document.getElementById("loanNamesContainer");
+const loanNameInput = document.getElementById("loanNameInput");
+const loanReplaceSelect = document.getElementById("loanReplaceSelect");
+const loanPlayerError = document.getElementById("loanPlayerError");
 
 const cancelLoanBtn = document.getElementById("cancelLoanBtn");
 const confirmLoanBtn = document.getElementById("confirmLoanBtn");
 
 loanBtn.addEventListener("click", () => {
+  if (!["NOT_STARTED", "UPCOMING"].includes(matchState.status)) return;
+
+  loanNameInput.value = "";
+  loanPlayerError.textContent = "";
+  loanReplaceSelect.innerHTML =
+    '<option value="">Ingen – legg til på benken</option>';
+
+  Object.values(matchState.players.home)
+    .filter(player => player?.present)
+    .sort((a, b) => {
+      if (a.starter !== b.starter) return a.starter ? -1 : 1;
+      return a.name.localeCompare(b.name, "nb");
+    })
+    .forEach(player => {
+      const option = document.createElement("option");
+      option.value = player.id;
+      option.textContent = `${player.name} (${player.starter ? "starter" : "benk"})`;
+      loanReplaceSelect.appendChild(option);
+    });
+
   loanModal.classList.remove("hidden");
+  setTimeout(() => loanNameInput.focus(), 0);
 });
 
 cancelLoanBtn.addEventListener("click", () => {
   loanModal.classList.add("hidden");
+  loanPlayerError.textContent = "";
 });
 
-loanCountInput.addEventListener("change", () => {
-  const count = Number(loanCountInput.value) || 0;
-
-  loanNamesContainer.innerHTML = "";
-
-  for (let i = 0; i < count; i++) {
-    const input = document.createElement("input"); // 🔥 DENNE MANGLER
-    input.type = "text";
-    input.placeholder = `Navn lånespiller ${i + 1}`;
-    input.className = "loanNameInput input-modern";
-
-    loanNamesContainer.appendChild(input);
-  }
+loanNameInput.addEventListener("keydown", event => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  confirmLoanBtn.click();
 });
 
 confirmLoanBtn.addEventListener("click", () => {
-  const inputs = document.querySelectorAll(".loanNameInput");
+  const name = loanNameInput.value.trim().replace(/\s+/g, " ");
+  if (!name) {
+    loanPlayerError.textContent = "Skriv inn navnet på lånespilleren.";
+    loanNameInput.focus();
+    return;
+  }
 
-  inputs.forEach((input, index) => {
-    const name = input.value.trim();
-    if (!name) return;
+  const duplicate = Object.values(matchState.players.home).find(player =>
+    player?.name?.localeCompare(name, "nb", { sensitivity: "base" }) === 0
+  );
+  if (duplicate) {
+    loanPlayerError.textContent = `${duplicate.name} finnes allerede i kamptroppen.`;
+    return;
+  }
 
-    const id = "loan_" + Date.now() + "_" + index;
+  const replacedPlayer = matchState.players.home[loanReplaceSelect.value];
+  const replacesStarter = replacedPlayer?.starter === true;
+  const uniqueId = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const id = `loan_${uniqueId}`;
+  const loanPlayer = createPlayer({ id, name });
+  loanPlayer.starter = replacesStarter;
+  matchState.players.home[id] = loanPlayer;
 
-matchState.players.home[id] = createPlayer({ id, name });
+  if (replacedPlayer) {
+    replacedPlayer.present = false;
+    replacedPlayer.starter = false;
+    matchState.squad.onField.home =
+      matchState.squad.onField.home.filter(playerId => playerId !== replacedPlayer.id);
+  }
 
-    // legg til i squad (ikke automatisk på banen)
-  });
+  if (replacesStarter && !matchState.squad.onField.home.includes(id)) {
+    matchState.squad.onField.home.push(id);
+  }
+
+  pendingNewLoanPlayerId = id;
   sanitizePlayers();
 
-  openSquadModal(); // 🔥 viktig – oppdater UI
-
   loanModal.classList.add("hidden");
+  openSquadModal();
 });
 
 function populateGoalScorers(team) {
@@ -2847,7 +2887,15 @@ function setLoginMessage(text, type = "") {
 document.getElementById("squadBtn").addEventListener("click", openSquadModal);
 
 function openSquadModal() {
-	 isSquadModalOpen = true;
+  if (!isSquadModalOpen) {
+    squadDraftSnapshot = {
+      playersHome: JSON.parse(JSON.stringify(matchState.players.home)),
+      onFieldHome: [...matchState.squad.onField.home],
+      lineupConfirmed: matchState.lineupConfirmed
+    };
+  }
+
+  isSquadModalOpen = true;
 	const squadLocked = !["NOT_STARTED", "UPCOMING"].includes(matchState.status);
   const list = document.getElementById("squadList");
   list.innerHTML = "";
@@ -2867,9 +2915,11 @@ HOME_SQUAD.forEach(p => {
 if (squadLocked) {
   saveBtn.disabled = true;
   saveBtn.style.display = "none";
+  loanBtn.style.display = "none";
 } else {
   saveBtn.disabled = true; // styres av starter-teller
   saveBtn.style.display = "inline-block";
+  loanBtn.style.display = "block";
 }
 
   Object.values(matchState.players.home).forEach(player => {
@@ -2879,6 +2929,11 @@ if (squadLocked) {
   const li = document.createElement("li");
   li.className = "squad-row";
   li.dataset.playerId = player.id;
+  li.classList.toggle("not-present", player.present !== true);
+
+  if (player.id === pendingNewLoanPlayerId) {
+    li.classList.add("is-new-loan");
+  }
 
   /* ===== TILSTEDE ===== */
   const presentLabel = document.createElement("label");
@@ -2984,6 +3039,16 @@ if (player.id && player.id.startsWith("loan_")) {
 
   document.getElementById("squadModal").classList.remove("hidden");
   updateStarterCounter();
+
+  if (pendingNewLoanPlayerId) {
+    const newLoanRow = [...list.children].find(
+      row => row.dataset.playerId === pendingNewLoanPlayerId
+    );
+    pendingNewLoanPlayerId = null;
+    setTimeout(() => {
+      newLoanRow?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+  }
 }
 
 function openCardModal() {
@@ -3239,6 +3304,8 @@ async function syncLineupWithSquad() {
     await updateDoc(matchRef, {
       lineup: syncedLineup,
       formation: storedData.formation || "4-5-1",
+      players: matchState.players.home,
+      onField: matchState.squad.onField.home,
       lineupConfirmed: syncedLineup.length === MAX_STARTERS,
       updatedAt: serverTimestamp()
     });
@@ -3293,6 +3360,7 @@ const lineupSynced = await syncLineupWithSquad();
 if (!lineupSynced) return;
 await saveLiveUpdate();
 isSquadModalOpen = false;
+squadDraftSnapshot = null;
 document.getElementById("squadModal").classList.add("hidden");
 syncUI();
 
@@ -3300,7 +3368,15 @@ syncUI();
 
 document.getElementById("cancelSquadBtn")
   .addEventListener("click", () => {
-    isSquadModalOpen = false; // 👈 legg til
+    if (squadDraftSnapshot) {
+      matchState.players.home = squadDraftSnapshot.playersHome;
+      matchState.squad.onField.home = squadDraftSnapshot.onFieldHome;
+      matchState.lineupConfirmed = squadDraftSnapshot.lineupConfirmed;
+    }
+
+    squadDraftSnapshot = null;
+    pendingNewLoanPlayerId = null;
+    isSquadModalOpen = false;
     document.getElementById("squadModal").classList.add("hidden");
   });
 

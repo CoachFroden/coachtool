@@ -565,6 +565,66 @@ button:disabled {
 .squad-row.not-present .player-name {
   color: #9ca3af; /* grå = ikke tilstede */
 }
+
+.squad-row.is-new-loan {
+  border: 1px solid rgba(96, 165, 250, 0.85);
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+  animation: new-loan-highlight 1.4s ease-out 2;
+}
+
+@keyframes new-loan-highlight {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+
+.squad-modal-help {
+  margin: -8px 0 10px;
+  color: #aab7cc;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.starter-counter {
+  margin: 0 0 10px;
+  text-align: center;
+  color: #dbeafe;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+#loanPlayersBtn {
+  width: 100%;
+  margin-bottom: 12px;
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #bfdbfe;
+}
+
+.loan-field {
+  display: block;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.loan-field > span {
+  display: block;
+  margin: 0 0 4px 2px;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.loan-field .input-modern {
+  margin: 0;
+}
+
+.loan-player-error {
+  min-height: 1.25rem;
+  margin: 8px 2px 0;
+  color: #fca5a5;
+  font-size: 0.78rem;
+  text-align: left;
+}
 .meta-field {
   display: inline-flex;
   flex-direction: column;
@@ -2372,13 +2432,6 @@ input[type="time"] {
 /* Hover */
 .input-modern:hover {
   background: rgba(255,255,255,0.08);
-}
-
-#loanNamesContainer {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 .input-modern {

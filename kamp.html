@@ -86,7 +86,7 @@
     </select>
 
     <button id="squadBtn">
-      Spillertropp / startellever
+      Endre tropp / startellever
     </button>
   </div>
 
@@ -408,38 +408,54 @@
 <div id="squadModal" class="modal hidden">
   <div class="modal-content">
     <h3>Spillertropp</h3>
-     <p id="starterCounter" style="text-align:center; font-size:0.8rem; opacity:0.7; margin-bottom:8px;">
-  Startere: 0 / 11
-</p>
-<button id="loanPlayersBtn" class="secondary-btn">
-  ➕ Lånespillere
-</button>
+    <p class="squad-modal-help">
+      Siste liten? Fjern den skadde eller erstatt spilleren direkte med en lånespiller.
+    </p>
+    <p id="starterCounter" class="starter-counter">
+      Startere: 0 / 11
+    </p>
+    <button id="loanPlayersBtn" class="secondary-btn">
+      + Skade / lånespiller
+    </button>
     <ul id="squadList"></ul>
 
     <div class="modal-actions">
       <button id="cancelSquadBtn">Avbryt</button>
-      <button id="saveSquadBtn">Lagre</button>
+      <button id="saveSquadBtn">Lagre endringer</button>
     </div>
   </div>
 </div>
 
-	<div id="loanModal" class="modal hidden">
+<div id="loanModal" class="modal hidden">
   <div class="modal-content">
-    <h3>Lånespillere</h3>
+    <h3>Legg til lånespiller</h3>
+    <p class="modal-hint">
+      Velg den skadde spilleren dersom lånespilleren skal overta plassen direkte.
+    </p>
 
-    <input
-  type="number"
-  id="loanCountInput"
-  class="input-modern"
-  placeholder="Antall lånespillere"
-  min="1"
-/>
+    <label class="loan-field" for="loanNameInput">
+      <span>Navn på lånespiller</span>
+      <input
+        type="text"
+        id="loanNameInput"
+        class="input-modern"
+        placeholder="Fornavn og etternavn"
+        autocomplete="off"
+      />
+    </label>
 
-    <div id="loanNamesContainer"></div>
+    <label class="loan-field" for="loanReplaceSelect">
+      <span>Erstatter</span>
+      <select id="loanReplaceSelect" class="input-modern">
+        <option value="">Ingen – legg til på benken</option>
+      </select>
+    </label>
+
+    <p id="loanPlayerError" class="loan-player-error" role="alert"></p>
 
     <div class="modal-actions">
       <button id="cancelLoanBtn">Avbryt</button>
-      <button id="confirmLoanBtn">OK</button>
+      <button id="confirmLoanBtn">Legg til</button>
     </div>
   </div>
 </div>
