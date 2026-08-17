@@ -1893,101 +1893,6 @@ input[type="time"] {
   text-align: center;
 }
 
-/* Rask deling av siste mål mens kampen pågår */
-.live-goal-share {
-  position: fixed;
-  right: 12px;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  left: 12px;
-  z-index: 3500;
-  width: min(390px, calc(100vw - 24px));
-  margin: 0 auto;
-  padding: 13px;
-  border: 1px solid rgba(74, 222, 128, 0.34);
-  border-radius: 17px;
-  background: rgba(9, 18, 34, 0.98);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.52), 0 0 24px rgba(34, 197, 94, 0.1);
-  backdrop-filter: blur(16px);
-}
-
-.live-goal-share-copy {
-  min-width: 0;
-  padding-right: 30px;
-  text-align: left;
-}
-
-.live-goal-share-copy span,
-.live-goal-share-copy strong {
-  display: block;
-}
-
-.live-goal-share-copy span {
-  margin-bottom: 3px;
-  color: #4ade80;
-  font-size: 0.68rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.live-goal-share-copy strong {
-  overflow: hidden;
-  color: #f8fafc;
-  font-size: 0.9rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-goal-share-dismiss {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  width: 32px;
-  min-height: 32px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: #94a3b8;
-  background: transparent;
-  box-shadow: none;
-  font-size: 1.3rem;
-}
-
-.live-goal-share-button {
-  display: flex;
-  width: 100%;
-  min-height: 45px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 11px 0 0;
-  padding: 0 14px;
-  border: 1px solid rgba(74, 222, 128, 0.36);
-  border-radius: 12px;
-  color: #fff;
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  box-shadow: 0 8px 20px rgba(22, 163, 74, 0.16);
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.live-goal-share-button:active {
-  transform: scale(0.985);
-}
-
-.live-goal-share-status {
-  min-height: 0;
-  margin: 7px 2px 0;
-  color: #86efac;
-  font-size: 0.68rem;
-  text-align: center;
-}
-
-.live-goal-share-status:empty {
-  display: none;
-}
-
 .final-event-review {
   margin: 0 0 18px;
   overflow: hidden;
@@ -2454,34 +2359,6 @@ input[type="time"] {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-}
-
-#eventList .event-share-btn {
-  width: auto;
-  min-width: 58px;
-  min-height: 32px;
-  margin: 0;
-  padding: 0 9px;
-  border: 1px solid rgba(96, 165, 250, 0.28);
-  border-radius: 9px;
-  background: rgba(37, 99, 235, 0.12);
-  box-shadow: none;
-  color: #93c5fd;
-  font-size: 0.7rem;
-  font-weight: 800;
-}
-
-#eventList .event-share-btn:active:not(:disabled) {
-  background: rgba(37, 99, 235, 0.28);
-  transform: scale(0.97);
-}
-
-#eventList .event-share-btn.is-sent,
-#eventList .event-share-btn.is-sent:disabled {
-  border-color: rgba(74, 222, 128, 0.2);
-  background: rgba(34, 197, 94, 0.1);
-  color: #86efac;
-  opacity: 1;
 }
 
 #eventList .event-menu-toggle {

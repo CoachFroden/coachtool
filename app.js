@@ -88,7 +88,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260817-5";
+const KAMP_PAGE_VERSION = "20260817-6";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -514,94 +514,6 @@ function buildGoalOverviewText() {
 
   return lines.join("\n");
 }
-
-let latestShareableGoalId = null;
-
-function buildSingleGoalShareText(event) {
-  const fixture = getFinalFixture();
-  const scoringTeam = event?.team === "away"
-    ? fixture.opponent
-    : fixture.ourTeam;
-
-  return [
-    "⚽ Måloppdatering",
-    `${fixture.homeTeam} ${fixture.homeScore}–${fixture.awayScore} ${fixture.awayTeam}`,
-    `${getGoalMinuteLabel(event)}. min – ${getGoalScorerName(event)} (${scoringTeam})`
-  ].join("\n");
-}
-
-function showLiveGoalShare(event) {
-  const panel = document.getElementById("liveGoalShare");
-  const summary = document.getElementById("liveGoalShareSummary");
-  const status = document.getElementById("liveGoalShareStatus");
-  if (!panel || !summary || !status || !event?.id) return;
-
-  const fixture = getFinalFixture();
-  latestShareableGoalId = event.id;
-  summary.textContent =
-    `${getGoalMinuteLabel(event)}. min · ${getGoalScorerName(event)} · ` +
-    `${fixture.homeScore}–${fixture.awayScore}`;
-  status.textContent = "";
-  panel.classList.remove("hidden");
-}
-
-function hideLiveGoalShare() {
-  latestShareableGoalId = null;
-  document.getElementById("liveGoalShare")?.classList.add("hidden");
-}
-
-document.getElementById("dismissLiveGoalShareBtn")
-  ?.addEventListener("click", hideLiveGoalShare);
-
-function markGoalAsSent(event) {
-  event.sentToManager = true;
-  event.sentToManagerAt = new Date().toISOString();
-  if (auth.currentUser) event.sentToManagerBy = auth.currentUser.uid;
-  renderEvents();
-  saveLiveUpdate();
-}
-
-async function shareGoalWithManager(event, status = null) {
-  if (!event || event.type !== "goal") return "missing";
-  const text = buildSingleGoalShareText(event);
-
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: "Måloppdatering", text });
-      markGoalAsSent(event);
-      if (status) status.textContent = "Måloppdateringen er sendt.";
-      return "sent";
-    } catch (error) {
-      if (error?.name === "AbortError") return "cancelled";
-      console.warn("Kunne ikke åpne delingsmenyen:", error);
-    }
-  }
-
-  try {
-    await copyGoalOverview(text);
-    if (status) status.textContent = "Kopiert – lim inn i Messenger.";
-    return "copied";
-  } catch (error) {
-    console.error("Kunne ikke kopiere måloppdateringen:", error);
-    if (status) status.textContent = "Kunne ikke dele. Prøv igjen.";
-    return "failed";
-  }
-}
-
-document.getElementById("shareLatestGoalBtn")?.addEventListener("click", async () => {
-  const status = document.getElementById("liveGoalShareStatus");
-  const event = matchState.events.find(goalEvent =>
-    goalEvent.id === latestShareableGoalId && goalEvent.type === "goal"
-  );
-
-  if (!event) {
-    if (status) status.textContent = "Fant ikke målet. Prøv måloversikten i stedet.";
-    return;
-  }
-
-  const result = await shareGoalWithManager(event, status);
-  if (result === "sent") setTimeout(hideLiveGoalShare, 1200);
-});
 
 function renderFinalGoalShare() {
   const panel = document.getElementById("finalGoalShare");
@@ -1190,7 +1102,6 @@ registeredGoalEvent = addEvent({
   }
 
   updateScoreboard();
-  if (registeredGoalEvent) showLiveGoalShare(registeredGoalEvent);
   return registeredGoalEvent;
 }
    
@@ -1637,10 +1548,6 @@ document.getElementById("saveEditGoalBtn").addEventListener("click", () => {
   event.text = rebuildEventText(event);
   event.edited = true;
   event.editedAt = new Date().toISOString();
-  event.sentToManager = false;
-  delete event.sentToManagerAt;
-  delete event.sentToManagerBy;
-
   renderEvents();
   saveLiveUpdate();
   closeEditGoalModal();
@@ -1937,38 +1844,6 @@ function renderEvents() {
 
     const actions = document.createElement("div");
     actions.className = "event-actions";
-
-    if (event.type === "goal") {
-      const shareBtn = document.createElement("button");
-      shareBtn.type = "button";
-      shareBtn.className = `event-share-btn${event.sentToManager ? " is-sent" : ""}`;
-      shareBtn.textContent = event.sentToManager ? "✓ Sendt" : "Send";
-      shareBtn.disabled = event.sentToManager === true;
-      shareBtn.setAttribute(
-        "aria-label",
-        event.sentToManager ? "Målet er sendt til lagleder" : "Send målet til lagleder"
-      );
-
-      shareBtn.addEventListener("click", async clickEvent => {
-        clickEvent.stopPropagation();
-        shareBtn.disabled = true;
-        shareBtn.textContent = "Deler…";
-
-        const result = await shareGoalWithManager(event);
-        if (result !== "sent") {
-          shareBtn.disabled = false;
-          shareBtn.textContent = "Send";
-
-          if (result === "copied") {
-            showLiveGoalShare(event);
-            const status = document.getElementById("liveGoalShareStatus");
-            if (status) status.textContent = "Kopiert – lim inn i Messenger.";
-          }
-        }
-      });
-
-      actions.appendChild(shareBtn);
-    }
 
     const menuToggle = document.createElement("button");
     menuToggle.type = "button";
