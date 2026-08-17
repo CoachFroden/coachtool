@@ -2356,7 +2356,7 @@ input[type="time"] {
 .event-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   min-height: 50px;
@@ -2410,7 +2410,38 @@ input[type="time"] {
 
 .event-actions {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+#eventList .event-share-btn {
+  width: auto;
+  min-width: 58px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 9px;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 9px;
+  background: rgba(37, 99, 235, 0.12);
+  box-shadow: none;
+  color: #93c5fd;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+#eventList .event-share-btn:active:not(:disabled) {
+  background: rgba(37, 99, 235, 0.28);
+  transform: scale(0.97);
+}
+
+#eventList .event-share-btn.is-sent,
+#eventList .event-share-btn.is-sent:disabled {
+  border-color: rgba(74, 222, 128, 0.2);
+  background: rgba(34, 197, 94, 0.1);
+  color: #86efac;
+  opacity: 1;
 }
 
 #eventList .event-menu-toggle {
