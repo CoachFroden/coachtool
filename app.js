@@ -102,7 +102,7 @@ let matchStarted = false;
 let isSquadModalOpen = false;
 let squadDraftSnapshot = null;
 let pendingNewLoanPlayerId = null;
-const KAMP_PAGE_VERSION = "20260818-5";
+const KAMP_PAGE_VERSION = "20260820-1";
 
 function getMatchIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -1562,16 +1562,18 @@ function updateUIByStatus() {
 }
 
 function startPlayingTime() {
-  const startMs = 0;
+  Object.values(matchState.players.home).forEach(player => {
+    if (!player) return;
+    player.intervals = [];
+    player.extraPlayingTimeMs = 0;
+  });
 
   matchState.squad.onField.home.forEach(playerId => {
     const player = matchState.players.home[playerId];
-
-    // nullstill intervaller eksplisitt
-    player.intervals = [];
+    if (!player) return;
 
     player.intervals.push({
-      in: startMs,
+      in: 0,
       out: null
     });
   });
@@ -2352,14 +2354,22 @@ startBtn.addEventListener("click", async () => {
   }
 
   matchState.matchId = urlMatchId;
-
   readMatchMetaFromUI();
 
-  setMatchStatus("LIVE");
+  // Opprett spillerintervallene før den første LIVE-lagringen. Hvis Firebase
+  // får en LIVE-snapshot først, kan sanntidssynken ellers skrive tomme
+  // intervaller tilbake over den lokale kampstaten.
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+
+  matchState.status = "LIVE";
   matchState.liveSharingEnabled = true;
   matchState.period = 1;
-  matchState.timer.startTimestamp = Date.now();
   matchState.timer.elapsedMs = 0;
+  matchState.timer.startTimestamp = Date.now();
+  startPlayingTime();
 
   await safeSetDoc(doc(db, "matches", matchState.matchId), {
     status: "LIVE",
@@ -2374,18 +2384,18 @@ startBtn.addEventListener("click", async () => {
     startedAt: serverTimestamp(),
     timer: {
       elapsedMs: 0,
-      startTimestamp: Date.now()
+      startTimestamp: matchState.timer.startTimestamp
     },
+    players: matchState.players.home,
+    onField: matchState.squad.onField.home,
+    lineupConfirmed: matchState.lineupConfirmed,
     pushReminders: {},
     updatedAt: serverTimestamp()
   }, { merge: true });
 
-addEvent("Kamp startet");
-
-startPlayingTime();
-startClock();
-
-syncUI();
+  addEvent("Kamp startet");
+  startClock();
+  syncUI();
 });
 
 function pausePlayingTime(timeMs) {
@@ -3059,17 +3069,24 @@ subBackBtn.addEventListener("click", () => {
   fillSubPlayerGrid(onFieldPlayers, "out");
 });
 
-function calculateMinutesPlayed(player) {
-  let totalMs = Math.max(0, Number(player.extraPlayingTimeMs) || 0);
+function calculatePlayingTimeMs(player) {
+  let totalMs = Math.max(0, Number(player?.extraPlayingTimeMs) || 0);
+  const currentTime = getCurrentMatchTimeMs();
+  const intervals = Array.isArray(player?.intervals) ? player.intervals : [];
 
-  const currentTime = getCurrentMatchTimeMs(); // 🔥 viktig
-
-  player.intervals.forEach(interval => {
-    const end = interval.out ?? currentTime;
-    totalMs += Math.max(0, end - interval.in);
+  intervals.forEach(interval => {
+    const start = Math.max(0, Number(interval?.in) || 0);
+    const end = interval?.out == null
+      ? currentTime
+      : Math.max(0, Number(interval.out) || 0);
+    totalMs += Math.max(0, end - start);
   });
 
-  return Math.floor(totalMs / 60000);
+  return totalMs;
+}
+
+function calculateMinutesPlayed(player) {
+  return Math.floor(calculatePlayingTimeMs(player) / 60000);
 }
 
 
@@ -3084,13 +3101,14 @@ document.getElementById("togglePlayingTimeBtn")
   document.getElementById("togglePlayingTimeBtn")
     .classList.toggle("is-expanded", !isHidden);
 
-  // 🔥 START/STOP OPPDATERING
+  // Oppdater hvert sekund slik at det er synlig at spilletiden faktisk går.
   if (!isHidden) {
-    updatePlayingTimeUI(); // kjør én gang
+    updatePlayingTimeUI();
 
+    clearInterval(playingTimeInterval);
     playingTimeInterval = setInterval(() => {
       updatePlayingTimeUI();
-    }, 5000); // hvert 5 sekund
+    }, 1000);
   } else {
     clearInterval(playingTimeInterval);
     playingTimeInterval = null;
@@ -3187,33 +3205,31 @@ function updatePlayingTimeUI() {
   players.sort((a, b) => {
     const aOn = isOnField(a.id);
     const bOn = isOnField(b.id);
-
-    const aMin = Math.max(0, calculateMinutesPlayed(a));
-    const bMin = Math.max(0, calculateMinutesPlayed(b));
+    const aPlayedMs = Math.max(0, calculatePlayingTimeMs(a));
+    const bPlayedMs = Math.max(0, calculatePlayingTimeMs(b));
 
     // På banen først
     if (aOn && !bOn) return -1;
     if (!aOn && bOn) return 1;
 
-    // Begge på banen → mest først
-    if (aOn && bOn) return bMin - aMin;
-
-    // Begge på benken → minst nederst
-    return bMin - aMin;
+    // Innen samme gruppe: mest spilletid først.
+    return bPlayedMs - aPlayedMs;
   });
 
-  const avgMinutes = players.length > 0
+  const avgPlayingMs = players.length > 0
     ? players.reduce(
-        (sum, player) => sum + Math.max(0, calculateMinutesPlayed(player)),
+        (sum, player) => sum + Math.max(0, calculatePlayingTimeMs(player)),
         0
       ) / players.length
     : 0;
+  const minimumPlayingMs = MINIMUM_PLAYING_MINUTES * 60 * 1000;
 
   let currentSection = null;
 
   players.forEach(player => {
     const isOn = isOnField(player.id);
-    const minutes = Math.max(0, calculateMinutesPlayed(player));
+    const playedMs = Math.max(0, calculatePlayingTimeMs(player));
+    const minutes = Math.floor(playedMs / 60000);
 
     if (isOn && currentSection !== "on") {
       const header = document.createElement("li");
@@ -3241,17 +3257,21 @@ function updatePlayingTimeUI() {
     if (yellow > 0) cardText += " 🟨".repeat(yellow);
     if (red) cardText += " 🟥";
 
-    const minimumReached = minutes >= MINIMUM_PLAYING_MINUTES;
+    const minimumReached = playedMs >= minimumPlayingMs;
+    const minutesMissing = Math.max(
+      0,
+      Math.ceil((minimumPlayingMs - playedMs) / 60000)
+    );
     const minimumStatus = minimumReached
       ? `<span class="minimum-status minimum-reached" title="Minstekravet er nådd">✓</span>`
-      : `<span class="minimum-status minimum-missing">mangler ${MINIMUM_PLAYING_MINUTES - minutes}</span>`;
+      : `<span class="minimum-status minimum-missing">mangler ${minutesMissing}</span>`;
 
     li.innerHTML = `
   <span class="player-name">
     ${player.name} <span class="cards">${cardText}</span>
   </span>
   <span class="player-minutes">
-    <span class="minutes-value">${minutes} min</span>
+    <span class="minutes-value">${formatTime(playedMs)}</span>
     ${minimumStatus}
   </span>
 `;
@@ -3264,11 +3284,11 @@ function updatePlayingTimeUI() {
       li.classList.add("bench");
     }
 
-    if (minutes > avgMinutes + 5) {
+    if (playedMs > avgPlayingMs + 5 * 60 * 1000) {
       li.classList.add("tired");
     }
 
-    if (minutes < avgMinutes - 5) {
+    if (playedMs < avgPlayingMs - 5 * 60 * 1000) {
       li.classList.add("fresh");
     }
 
@@ -4413,6 +4433,34 @@ function copyRemotePlayers(players) {
   );
 }
 
+function preserveLocalPlayingTimeOnRemoteSync(remotePlayers, remoteStatus) {
+  if (!["LIVE", "TEMP_STOPPED"].includes(remoteStatus)) return remotePlayers;
+
+  Object.entries(remotePlayers).forEach(([id, remotePlayer]) => {
+    const localPlayer = matchState.players.home[id];
+    if (!localPlayer) return;
+
+    const remoteIntervals = Array.isArray(remotePlayer.intervals)
+      ? remotePlayer.intervals
+      : [];
+    const localIntervals = Array.isArray(localPlayer.intervals)
+      ? localPlayer.intervals
+      : [];
+
+    // En tom serverkopi rett etter kampstart skal aldri kunne slette et
+    // allerede opprettet lokalt spilleintervall.
+    if (remoteIntervals.length === 0 && localIntervals.length > 0) {
+      remotePlayer.intervals = localIntervals.map(interval => ({ ...interval }));
+      remotePlayer.extraPlayingTimeMs = Math.max(
+        Number(remotePlayer.extraPlayingTimeMs) || 0,
+        Number(localPlayer.extraPlayingTimeMs) || 0
+      );
+    }
+  });
+
+  return remotePlayers;
+}
+
 function applyRemoteLineupFallback(data) {
   if (
     !Array.isArray(data.lineup) ||
@@ -4495,7 +4543,10 @@ function applyRemoteMatchData(data) {
 
   const remotePlayers = copyRemotePlayers(data.players);
   if (remotePlayers) {
-    matchState.players.home = remotePlayers;
+    matchState.players.home = preserveLocalPlayingTimeOnRemoteSync(
+      remotePlayers,
+      data.status || matchState.status
+    );
   }
 
   if (Array.isArray(data.onField)) {
