@@ -575,15 +575,12 @@
         Number(timeMatches[1][2]);
     }
 
-    const clockMinute = Math.max(
-      halfMinutes,
-      Math.ceil(elapsedSeconds / 60)
-    );
+    const clockMinute = Math.max(1, Math.ceil(elapsedSeconds / 60));
     const overtimeMinutes = Math.max(0, clockMinute - halfMinutes);
 
     return overtimeMinutes > 0
       ? `${halfMinutes} + ${overtimeMinutes}`
-      : String(halfMinutes);
+      : String(clockMinute);
   }
 
   // app.js åpner først dialogen. Når den blir synlig, erstattes standarden
