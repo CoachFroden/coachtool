@@ -549,7 +549,58 @@
   </div>
 </div>
 
- <script type="module" src="app.js?v=20260818-5"></script>
+<script type="module">
+  import "./app.js?v=20260820-2";
+
+  const halfTimeEndModal = document.getElementById("halfTimeEndModal");
+  const halfTimeEndInput = document.getElementById("halfTimeEndInput");
+  const confirmHalfTimeEndBtn = document.getElementById("confirmHalfTimeEndBtn");
+  const gameClock = document.getElementById("game-clock");
+  const halfLength = document.getElementById("halfLength");
+
+  function getSuggestedFirstHalfEnd() {
+    const halfMinutes = Math.max(1, Number(halfLength?.value) || 35);
+    const clockText = gameClock?.textContent || "";
+    const timeMatches = [...clockText.matchAll(/(\d+):(\d{2})/g)];
+
+    if (timeMatches.length === 0) return String(halfMinutes);
+
+    let elapsedSeconds = Number(timeMatches[0][1]) * 60 + Number(timeMatches[0][2]);
+
+    // I tilleggstid vises klokken som f.eks. "35:00 (+01:12)".
+    if (timeMatches.length > 1 && clockText.includes("(+")) {
+      elapsedSeconds =
+        halfMinutes * 60 +
+        Number(timeMatches[1][1]) * 60 +
+        Number(timeMatches[1][2]);
+    }
+
+    const clockMinute = Math.max(
+      halfMinutes,
+      Math.ceil(elapsedSeconds / 60)
+    );
+    const overtimeMinutes = Math.max(0, clockMinute - halfMinutes);
+
+    return overtimeMinutes > 0
+      ? `${halfMinutes} + ${overtimeMinutes}`
+      : String(halfMinutes);
+  }
+
+  // app.js åpner først dialogen. Når den blir synlig, erstattes standarden
+  // med kampklokkens faktiske minutt. Ved senere korrigering beholdes den
+  // lagrede tiden i feltet.
+  new MutationObserver(() => {
+    const isOpen = !halfTimeEndModal?.classList.contains("hidden");
+    const isStartingPause = confirmHalfTimeEndBtn?.textContent.trim() === "Start pause";
+    if (!isOpen || !isStartingPause || !halfTimeEndInput) return;
+
+    halfTimeEndInput.value = getSuggestedFirstHalfEnd();
+    halfTimeEndInput.select();
+  }).observe(halfTimeEndModal, {
+    attributes: true,
+    attributeFilter: ["class"]
+  });
+</script>
 
 </body>
 </html>
