@@ -39,12 +39,23 @@ function normalizeName(value) {
     .replace(/\s+/g, " ");
 }
 
+function firstNameKey(value) {
+  return normalizeName(value).split(" ")[0] || "";
+}
+
 function formatTime(ms) {
   const safeMs = Math.max(0, Number(ms) || 0);
   const totalSeconds = Math.floor(safeMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatRegularPlusOvertime(regularMs, overtimeMs, overtimeClass = "overtime") {
+  const extra = Math.max(0, Number(overtimeMs) || 0);
+  return extra > 0
+    ? `${formatTime(regularMs)} <span class="${overtimeClass}">(+${formatTime(extra)})</span>`
+    : formatTime(regularMs);
 }
 
 function timestampToMs(value) {
@@ -75,8 +86,6 @@ function getDisplayedClockMs() {
 
   let totalMs = (Number(matches[0][1]) * 60 + Number(matches[0][2])) * 1000;
 
-  // Ved tilleggstid viser klokken f.eks. 35:00 (+00:18).
-  // Den faktiske tiden er da 35:18, ikke 36:00.
   if (matches.length > 1 && clockText.includes("(+")) {
     totalMs += (Number(matches[1][1]) * 60 + Number(matches[1][2])) * 1000;
   }
@@ -125,7 +134,6 @@ function getPlayingTimeBreakdown(player, data) {
       return;
     }
 
-    // Etter pausen er tilleggstid fra 1. omgang bevart separat på spilleren.
     regularMs += overlapMs(start, end, 0, fullTimeMs);
     overtimeMs += Math.max(0, end - Math.max(start, fullTimeMs));
   });
@@ -145,31 +153,78 @@ function getPlayerNameFromRow(row) {
   return normalizeName(firstTextNode?.textContent || nameElement.textContent);
 }
 
+function buildPlayerLookup(players) {
+  const exact = new Map();
+  const first = new Map();
+  const duplicateFirstNames = new Set();
+
+  players.forEach(player => {
+    if (!player?.name) return;
+    exact.set(normalizeName(player.name), player);
+
+    const key = firstNameKey(player.name);
+    if (!key) return;
+    if (first.has(key)) duplicateFirstNames.add(key);
+    else first.set(key, player);
+  });
+
+  duplicateFirstNames.forEach(key => first.delete(key));
+  return { exact, first };
+}
+
+function applyMatchClockDisplay() {
+  if (!gameClock || !latestMatchData) return;
+
+  const status = String(latestMatchData?.status || "").toUpperCase();
+  const period = Number(latestMatchData?.period) === 2 ? 2 : 1;
+  const halfMinutes = Math.max(1, Number(latestMatchData?.meta?.halfLengthMin) || 35);
+  const halfMs = halfMinutes * 60 * 1000;
+
+  // Live-klokken i app.js håndterer allerede tilleggstid riktig.
+  // Her retter vi pausevisningen, som ellers viser totalen som én rå tid.
+  if (!["HALFTIME", "PAUSED"].includes(status) || period !== 1) return;
+
+  const actualEndMs = Number.isFinite(Number(latestMatchData?.firstHalfActualEndMs))
+    ? Number(latestMatchData.firstHalfActualEndMs)
+    : Math.max(0, Number(latestMatchData?.timer?.elapsedMs) || 0);
+
+  const regularMs = Math.min(actualEndMs, halfMs);
+  const overtimeMs = Math.max(0, actualEndMs - halfMs);
+  const wantedHtml = formatRegularPlusOvertime(regularMs, overtimeMs, "overtime");
+
+  if (gameClock.innerHTML !== wantedHtml) {
+    gameClock.innerHTML = wantedHtml;
+  }
+}
+
 function applyPlayingTimeDisplay() {
   if (!playingTimeList || !latestMatchData) return;
 
   const players = Object.values(latestMatchData?.players?.home || {});
-  const playersByName = new Map(
-    players
-      .filter(player => player?.name)
-      .map(player => [normalizeName(player.name), player])
-  );
+  const lookup = buildPlayerLookup(players);
 
   playingTimeList.querySelectorAll("li:not(.pt-header)").forEach(row => {
-    const player = playersByName.get(getPlayerNameFromRow(row));
+    const rowName = getPlayerNameFromRow(row);
+    const player = lookup.exact.get(rowName) || lookup.first.get(firstNameKey(rowName));
     const valueElement = row.querySelector(".minutes-value");
     if (!player || !valueElement) return;
 
     const { regularMs, overtimeMs } = getPlayingTimeBreakdown(player, latestMatchData);
-    const overtimeHtml = overtimeMs > 0
-      ? ` <span class="player-overtime">(+${formatTime(overtimeMs)})</span>`
-      : "";
-    const wantedHtml = `${formatTime(regularMs)}${overtimeHtml}`;
+    const wantedHtml = formatRegularPlusOvertime(
+      regularMs,
+      overtimeMs,
+      "player-overtime"
+    );
 
     if (valueElement.innerHTML !== wantedHtml) {
       valueElement.innerHTML = wantedHtml;
     }
   });
+}
+
+function applyDisplays() {
+  applyMatchClockDisplay();
+  applyPlayingTimeDisplay();
 }
 
 function ensureStyles() {
@@ -181,7 +236,7 @@ function ensureStyles() {
     .minutes-value .player-overtime {
       margin-left: 4px;
       color: #94a3b8;
-      font-size: 0.78em;
+      font-size: 0.82em;
       font-weight: 650;
       white-space: nowrap;
     }
@@ -192,19 +247,13 @@ function ensureStyles() {
 function startRendering() {
   ensureStyles();
 
-  if (playingTimeList) {
-    const observer = new MutationObserver(applyPlayingTimeDisplay);
-    observer.observe(playingTimeList, {
-      childList: true,
-      subtree: true
-    });
-  }
-
   if (!renderTimer) {
-    renderTimer = setInterval(applyPlayingTimeDisplay, 500);
+    // app.js tegner UI fortløpende. Legg formatlaget rett etterpå slik at
+    // klokke og spillerliste alltid ender med samme visningsmodell.
+    renderTimer = setInterval(applyDisplays, 200);
   }
 
-  applyPlayingTimeDisplay();
+  applyDisplays();
 }
 
 async function waitForHalfTimeAndPatch(exactMs) {
@@ -215,7 +264,6 @@ async function waitForHalfTimeAndPatch(exactMs) {
   try {
     let data = null;
 
-    // Vent til app.js har fullført sin ordinære lagring av pausen.
     for (let attempt = 0; attempt < 25; attempt += 1) {
       const snapshot = await getDoc(activeMatchRef);
       if (snapshot.exists()) {
@@ -230,7 +278,6 @@ async function waitForHalfTimeAndPatch(exactMs) {
 
     if (!data) return;
 
-    // Gi den vanlige pause-lagringen et lite øyeblikk til å bli helt ferdig.
     await new Promise(resolve => setTimeout(resolve, 300));
     const stableSnapshot = await getDoc(activeMatchRef);
     if (!stableSnapshot.exists()) return;
@@ -240,8 +287,6 @@ async function waitForHalfTimeAndPatch(exactMs) {
     const storedEndMs = Number(data?.firstHalfActualEndMs ?? data?.timer?.elapsedMs);
     if (!Number.isFinite(storedEndMs)) return;
 
-    // Denne korreksjonen er bare ment å fjerne avrunding til helt kampminutt.
-    // Større avvik tyder på at brukeren har gjort en bevisst manuell korreksjon.
     if (Math.abs(storedEndMs - exactMs) > 65000) return;
 
     const playersHome = { ...(data?.players?.home || {}) };
@@ -253,8 +298,6 @@ async function waitForHalfTimeAndPatch(exactMs) {
           const next = { ...interval };
           const outMs = next.out == null ? null : Number(next.out);
 
-          // Spillere som var på banen ved pausesignalet fikk ut-tid satt til
-          // det avrundede minuttet. Flytt bare disse til eksakt sekundtid.
           if (Number.isFinite(outMs) && Math.abs(outMs - storedEndMs) <= 1500) {
             next.out = exactMs;
           }
@@ -369,7 +412,7 @@ async function subscribeToMatch(user) {
   unsubscribeMatch = onSnapshot(selectedRef, snapshot => {
     if (!snapshot.exists()) return;
     latestMatchData = snapshot.data();
-    applyPlayingTimeDisplay();
+    applyDisplays();
   });
 }
 
