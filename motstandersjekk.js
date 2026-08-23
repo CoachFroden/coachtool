@@ -384,12 +384,10 @@ async function enhanceUpcomingCards() {
         button = document.createElement("button");
         button.type = "button";
         button.className = "opponentCheckBtn";
-        button.addEventListener("click", event => handleCheckClick(event, match, card));
         card.appendChild(button);
       }
 
-      button.onclick = null;
-      button.addEventListener("click", event => handleCheckClick(event, match, card), { once: true });
+      button.onclick = event => handleCheckClick(event, match, card);
       setButtonState(button, match);
     });
   } catch (error) {
