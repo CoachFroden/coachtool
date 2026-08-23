@@ -27,6 +27,42 @@ export const functions = getFunctions(app, "us-central1");
 
 console.log("FUNCTIONS REGION:", functions.region);
 
+// Kampregistrering: små visuelle justeringer som skal ligge over kamp.html/styles.css.
+function installMatchUiPolish() {
+  if (document.getElementById("match-ui-polish")) return;
+
+  const style = document.createElement("style");
+  style.id = "match-ui-polish";
+  style.textContent = `
+    #halfTimeBtn {
+      border: 1px solid rgba(248, 113, 113, 0.28) !important;
+      background: rgba(127, 29, 29, 0.18) !important;
+      color: #fca5a5 !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
+
+    #halfTimeBtn:hover {
+      border-color: rgba(248, 113, 113, 0.46) !important;
+      background: rgba(127, 29, 29, 0.28) !important;
+      color: #fecaca !important;
+    }
+
+    #matchUI #clock-section {
+      border: 1px solid rgba(96, 165, 250, 0.38) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 0 0 1px rgba(96, 165, 250, 0.025),
+        0 14px 30px rgba(0, 0, 0, 0.18),
+        0 0 28px rgba(37, 99, 235, 0.10) !important;
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+installMatchUiPolish();
+
 // Kampregistrering: den synlige klokken viser samlet kamptid.
 // En 2 x 35-kamp går derfor fra 35:00 til 70:00 i 2. omgang.
 // Beskytt Slutt-knappen mot å få tidsutløpt-puls allerede ved 35:00.
