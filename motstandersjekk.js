@@ -137,6 +137,14 @@ function buttonLabel(match) {
 }
 
 function setButtonState(button, match) {
+  if (button.dataset.loading === "true") {
+    button.disabled = true;
+    if (button.textContent !== "⏳ Sjekker motstander…") {
+      button.textContent = "⏳ Sjekker motstander…";
+    }
+    return;
+  }
+
   const nextLabel = buttonLabel(match);
   if (button.textContent !== nextLabel) {
     button.textContent = nextLabel;
@@ -309,8 +317,8 @@ async function runAnalysis(match, card, force = false) {
     return;
   }
 
-  button.disabled = true;
-  button.textContent = "⏳ Sjekker motstander…";
+  button.dataset.loading = "true";
+  setButtonState(button, match);
   card.querySelector(".opponentAnalysisPanel")?.remove();
 
   const loading = document.createElement("div");
@@ -330,10 +338,12 @@ async function runAnalysis(match, card, force = false) {
 
     match.opponentAnalysis = analysis;
     loading.remove();
+    delete button.dataset.loading;
     setButtonState(button, match);
     renderAnalysisPanel(card, match, analysis);
   } catch (error) {
     loading.remove();
+    delete button.dataset.loading;
     setButtonState(button, match);
 
     const message = error?.message || "Kunne ikke gjennomføre motstandersjekken.";
