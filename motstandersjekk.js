@@ -137,7 +137,11 @@ function buttonLabel(match) {
 }
 
 function setButtonState(button, match) {
-  button.textContent = buttonLabel(match);
+  const nextLabel = buttonLabel(match);
+  if (button.textContent !== nextLabel) {
+    button.textContent = nextLabel;
+  }
+
   button.disabled = false;
   button.classList.remove(
     "opponentStatusGreen",
