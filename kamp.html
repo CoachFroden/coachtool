@@ -20,6 +20,33 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="styles.css?v=20260818-5" />
+<style>
+  #halfTimeBtn.time-ended-pulse,
+  #endBtn.time-ended-pulse {
+    animation: timeEndedBorderPulse 0.95s ease-in-out infinite !important;
+    outline: none !important;
+  }
+
+  @keyframes timeEndedBorderPulse {
+    0%, 100% {
+      border-color: rgba(239, 68, 68, 0.5);
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+    50% {
+      border-color: #ff3b30;
+      box-shadow:
+        0 0 0 3px rgba(255, 59, 48, 0.28),
+        0 0 16px rgba(255, 59, 48, 0.62);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #halfTimeBtn.time-ended-pulse,
+    #endBtn.time-ended-pulse {
+      animation-duration: 1.8s !important;
+    }
+  }
+</style>
 </head>
 <body>
 <button id="backBtn" class="back-btn">←</button>
@@ -557,6 +584,27 @@
   const confirmHalfTimeEndBtn = document.getElementById("confirmHalfTimeEndBtn");
   const gameClock = document.getElementById("game-clock");
   const halfLength = document.getElementById("halfLength");
+  const periodIndicator = document.getElementById("period-indicator");
+  const halfTimeButton = document.getElementById("halfTimeBtn");
+  const endButton = document.getElementById("endBtn");
+
+  function getDisplayedPeriodSeconds() {
+    const clockText = gameClock?.textContent || "";
+    const match = clockText.match(/(\d+):(\d{2})/);
+    if (!match) return 0;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  function syncTimeEndedPulse() {
+    const halfMinutes = Math.max(1, Number(halfLength?.value) || 35);
+    const timeIsUp = getDisplayedPeriodSeconds() >= halfMinutes * 60;
+    const periodText = String(periodIndicator?.textContent || "").toLowerCase();
+    const firstHalf = periodText.includes("1.") || periodText.includes("1 ");
+    const secondHalf = periodText.includes("2.") || periodText.includes("2 ");
+
+    halfTimeButton?.classList.toggle("time-ended-pulse", timeIsUp && firstHalf);
+    endButton?.classList.toggle("time-ended-pulse", timeIsUp && secondHalf);
+  }
 
   function getSuggestedFirstHalfEnd() {
     const halfMinutes = Math.max(1, Number(halfLength?.value) || 35);
@@ -582,6 +630,10 @@
       ? `${halfMinutes} + ${overtimeMinutes}`
       : String(clockMinute);
   }
+
+  // Hold den røde rammen aktiv helt til omgangen/kampen faktisk avsluttes.
+  setInterval(syncTimeEndedPulse, 250);
+  syncTimeEndedPulse();
 
   // app.js åpner først dialogen. Når den blir synlig, erstattes standarden
   // med kampklokkens faktiske minutt. Ved senere korrigering beholdes den
