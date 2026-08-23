@@ -80,7 +80,6 @@ function getCurrentMatchTimeMs(data) {
 function getPlayersInfo(data) {
   const players = data?.players;
 
-  // Ny/vanlig kampstruktur: players: { h1: {...}, h2: {...} }
   if (players && typeof players === "object" && !Array.isArray(players)) {
     const directValues = Object.values(players);
     const looksDirect = directValues.some(value =>
@@ -95,7 +94,6 @@ function getPlayersInfo(data) {
     }
   }
 
-  // Støtte for eventuell eldre/nøstet struktur.
   if (players?.home && typeof players.home === "object") {
     return {
       playersObject: players.home,
@@ -261,6 +259,32 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
+function installDisplayObservers() {
+  if (playingTimeList) {
+    const playerObserver = new MutationObserver(() => {
+      applyPlayingTimeDisplay();
+    });
+
+    playerObserver.observe(playingTimeList, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+
+  if (gameClock) {
+    const clockObserver = new MutationObserver(() => {
+      applyMatchClockDisplay();
+    });
+
+    clockObserver.observe(gameClock, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+}
+
 async function repairHalfTimePlayers(data) {
   if (!activeMatchRef || repairRunning) return;
   if (String(data?.status || "").toUpperCase() !== "HALFTIME") return;
@@ -285,8 +309,6 @@ async function repairHalfTimePlayers(data) {
         const start = Math.max(0, Number(next.in) || 0);
         const out = next.out == null ? null : Number(next.out);
 
-        // Ved pause kunne appen tidligere lagre 1:13 som kampminutt 2:00.
-        // Alt som strekker seg forbi det eksakte pausesignalet kuttes til eksakt tid.
         if (Number.isFinite(out) && out > exactEndMs && start < exactEndMs) {
           next.out = exactEndMs;
           changed = true;
@@ -494,9 +516,8 @@ async function subscribeToMatch(user) {
 
 function init() {
   ensureStyles();
+  installDisplayObservers();
   installPreciseHalfTimeCapture();
-
-  setInterval(applyDisplays, 200);
 
   if (!matchId || getApps().length === 0) return;
 
