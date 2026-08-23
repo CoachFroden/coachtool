@@ -30,7 +30,6 @@ function firstOutputText(response) {
 }
 
 function normalizeCitations(annotations) {
-  const seen = new Set();
   const rows = [];
 
   for (const annotation of annotations || []) {
@@ -38,8 +37,7 @@ function normalizeCitations(annotations) {
     if (citation?.type && citation.type !== "url_citation") continue;
 
     const url = String(citation?.url || "").trim();
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
+    if (!url) continue;
 
     rows.push({
       url,
@@ -49,7 +47,7 @@ function normalizeCitations(annotations) {
     });
   }
 
-  return rows.slice(0, 30);
+  return rows.slice(0, 50);
 }
 
 function parseHeadlineStatus(text) {
@@ -70,7 +68,8 @@ function buildPrompt({ matchId, fiksId, match, manualFiksData }) {
   const ourTeam = meta.ourTeam || "Samnanger";
   const venue = meta.venueName || "ukjent bane";
   const competitionType = meta.type || "ukjent kamptype";
-  const season = String(matchDate).slice(0, 4) || new Date().getFullYear();
+  const seasonMatch = String(matchDate).match(/^(\d{4})-/);
+  const season = seasonMatch ? seasonMatch[1] : new Date().getFullYear();
   const publicMatchUrl = `https://www.fotball.no/fotballdata/kamp/?fiksId=${fiksId}`;
 
   return `
@@ -99,13 +98,14 @@ ${manualFiksData ? `BRUKEROPPGITTE FIKS-OPPLYSNINGER\n${String(manualFiksData).s
 
 UNDERSØKELSEN SKAL VÆRE GRUNDIG
 1. Finn riktig offentlig kampside via FIKS-ID og kontroller motstander, dato, serie/avdeling, spillform og kamptropp hvis den er offentlig publisert.
-2. Kartlegg relevante lag i motstanderklubben i gutte- og jentefotball fra aktuelle yngre klasser og opp til G16/J16. I Hordaland finnes det ikke egne G15/J15-klasser, så spill på G16/J16 må ikke tolkes som at spilleren nødvendigvis er 16 år. Bruk faktisk fødselsår bare dersom det er offentlig dokumentert.
-3. For hver spiller i dagens offentlige kamptropp: undersøk offentlig kamphistorikk på klubbens relevante lag. Prioriter de siste obligatoriske kampene før denne kampen.
-4. Vurder spill på flere lag opp mot gjeldende NFF-regelverk for den aktuelle sesongen og NFF Hordalands veiledning. Kontroller særlig regler om nærmeste høyere rangerte lag, likestilte lag, antallsgrenser for aktuell spillform, siste obligatoriske kamp, ulik spillform, overårige spillere, alderskrav, sammensatte lag og relevante kjønnsregler.
-5. Undersøk klubbens andre kamper samme dag og noter mulige samtidige eller tettliggende kamper for spillere som også finnes i dagens tropp. Ikke påstå faktisk deltakelse uten offentlig dokumentasjon.
-6. Kontroller draktnummer i offentlig kamptropp og marker duplikater eller andre tydelige registreringsavvik.
-7. Dersom et forhold kan være lovlig på grunn av dispensasjon eller informasjon som ikke er offentlig, skal du merke det som 'må kontrolleres manuelt', ikke som regelbrudd.
-8. Skille tydelig mellom dokumenterte fakta, regelvurdering og usikkerhet.
+2. Identifiser om motstanderen er et ordinært lag eller et sammensatt/samarbeidslag. Hvis lagnavnet eller NFF-data viser flere klubber, for eksempel et navn med skråstrek, skal du kartlegge relevante lag og spillerhistorikk hos alle klubbene som inngår i laget, ikke bare den første klubben.
+3. Kartlegg relevante lag i gutte- og jentefotball fra aktuelle yngre klasser og opp til G16/J16. I Hordaland finnes det ikke egne G15/J15-klasser, så spill på G16/J16 må ikke tolkes som at spilleren nødvendigvis er 16 år. Bruk faktisk fødselsår bare dersom det er offentlig dokumentert.
+4. For hver spiller i dagens offentlige kamptropp: undersøk offentlig kamphistorikk på de relevante lagene. Prioriter de siste obligatoriske kampene før denne kampen.
+5. Vurder spill på flere lag opp mot gjeldende NFF-regelverk for den aktuelle sesongen og NFF Hordalands veiledning. Kontroller særlig regler om nærmeste høyere rangerte lag, likestilte lag, antallsgrenser for aktuell spillform, siste obligatoriske kamp, ulik spillform, overårige spillere, alderskrav, sammensatte lag og relevante kjønnsregler.
+6. Undersøk alle relevante klubbers andre kamper samme dag og noter mulige samtidige eller tettliggende kamper for spillere som også finnes i dagens tropp. Ikke påstå faktisk deltakelse uten offentlig dokumentasjon.
+7. Kontroller draktnummer i offentlig kamptropp og marker duplikater eller andre tydelige registreringsavvik.
+8. Dersom et forhold kan være lovlig på grunn av dispensasjon eller informasjon som ikke er offentlig, skal du merke det som 'må kontrolleres manuelt', ikke som regelbrudd.
+9. Skille tydelig mellom dokumenterte fakta, regelvurdering og usikkerhet.
 
 SVARFORMAT
 Start svaret nøyaktig med to linjer:
