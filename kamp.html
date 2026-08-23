@@ -22,28 +22,26 @@
 <link rel="stylesheet" href="styles.css?v=20260818-5" />
 <style>
   #halfTimeBtn {
-    border: 1px solid rgba(251, 146, 60, 0.46) !important;
-    background: linear-gradient(
-      180deg,
-      rgba(146, 64, 14, 0.92) 0%,
-      rgba(120, 53, 15, 0.94) 52%,
-      rgba(127, 29, 29, 0.88) 100%
-    ) !important;
-    color: #fff7ed !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 8px 18px rgba(120, 53, 15, 0.2) !important;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(248, 113, 113, 0.28) !important;
+    background: rgba(127, 29, 29, 0.18) !important;
+    color: #fca5a5 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 
   #halfTimeBtn:hover {
-    border-color: rgba(253, 186, 116, 0.66) !important;
-    background: linear-gradient(
-      180deg,
-      rgba(180, 83, 9, 0.96) 0%,
-      rgba(146, 64, 14, 0.96) 52%,
-      rgba(153, 27, 27, 0.92) 100%
-    ) !important;
+    border-color: rgba(248, 113, 113, 0.46) !important;
+    background: rgba(127, 29, 29, 0.28) !important;
+    color: #fecaca !important;
+  }
+
+  #matchUI #clock-section {
+    border: 1px solid rgba(96, 165, 250, 0.38) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      inset 0 0 0 1px rgba(96, 165, 250, 0.025),
+      0 14px 30px rgba(0, 0, 0, 0.18),
+      0 0 28px rgba(37, 99, 235, 0.10) !important;
   }
 
   #halfTimeBtn.time-ended-pulse,
@@ -622,13 +620,15 @@
 
   function syncTimeEndedPulse() {
     const halfMinutes = Math.max(1, Number(halfLength?.value) || 35);
-    const timeIsUp = getDisplayedPeriodSeconds() >= halfMinutes * 60;
+    const elapsedSeconds = getDisplayedPeriodSeconds();
+    const firstHalfTimeIsUp = elapsedSeconds >= halfMinutes * 60;
+    const matchTimeIsUp = elapsedSeconds >= halfMinutes * 2 * 60;
     const periodText = String(periodIndicator?.textContent || "").toLowerCase();
     const firstHalf = periodText.includes("1.") || periodText.includes("1 ");
     const secondHalf = periodText.includes("2.") || periodText.includes("2 ");
 
-    halfTimeButton?.classList.toggle("time-ended-pulse", timeIsUp && firstHalf);
-    endButton?.classList.toggle("time-ended-pulse", timeIsUp && secondHalf);
+    halfTimeButton?.classList.toggle("time-ended-pulse", firstHalf && firstHalfTimeIsUp);
+    endButton?.classList.toggle("time-ended-pulse", secondHalf && matchTimeIsUp);
   }
 
   function getSuggestedFirstHalfEnd() {
