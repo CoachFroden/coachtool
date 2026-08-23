@@ -7,7 +7,9 @@ import {
   getFirestore,
   doc,
   getDoc,
-  onSnapshot
+  onSnapshot,
+  updateDoc,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 import {
@@ -17,10 +19,18 @@ import {
 
 const matchId = new URLSearchParams(window.location.search).get("matchId");
 const playingTimeList = document.getElementById("playingTimeList");
+const gameClock = document.getElementById("game-clock");
+const halfTimeBtn = document.getElementById("halfTimeBtn");
+const halfTimeEndInput = document.getElementById("halfTimeEndInput");
+const confirmHalfTimeEndBtn = document.getElementById("confirmHalfTimeEndBtn");
 
 let latestMatchData = null;
 let unsubscribeMatch = null;
 let renderTimer = null;
+let activeMatchRef = null;
+let pendingExactFirstHalfMs = null;
+let halfTimeInputWasEdited = false;
+let precisionPatchRunning = false;
 
 function normalizeName(value) {
   return String(value || "")
@@ -58,6 +68,33 @@ function getCurrentMatchTimeMs(data) {
   return elapsedMs + Math.max(0, Date.now() - startMs);
 }
 
+function getDisplayedClockMs() {
+  const clockText = String(gameClock?.textContent || "");
+  const matches = [...clockText.matchAll(/(\d+):(\d{2})/g)];
+  if (matches.length === 0) return null;
+
+  let totalMs = (Number(matches[0][1]) * 60 + Number(matches[0][2])) * 1000;
+
+  // Ved tilleggstid viser klokken f.eks. 35:00 (+00:18).
+  // Den faktiske tiden er da 35:18, ikke 36:00.
+  if (matches.length > 1 && clockText.includes("(+")) {
+    totalMs += (Number(matches[1][1]) * 60 + Number(matches[1][2])) * 1000;
+  }
+
+  return totalMs;
+}
+
+function getFootballMinuteLabel(timeMs, halfMinutes) {
+  const halfMs = halfMinutes * 60 * 1000;
+  if (timeMs <= halfMs) {
+    return String(Math.max(1, Math.ceil(timeMs / 60000)));
+  }
+
+  const overtimeMs = Math.max(0, timeMs - halfMs);
+  const overtimeMinute = Math.max(1, Math.ceil(overtimeMs / 60000));
+  return `${halfMinutes} + ${overtimeMinute}`;
+}
+
 function overlapMs(start, end, rangeStart, rangeEnd) {
   const from = Math.max(start, rangeStart);
   const to = Math.min(end, rangeEnd);
@@ -83,14 +120,12 @@ function getPlayingTimeBreakdown(player, data) {
     const end = Math.max(start, rawEnd);
 
     if (period === 1) {
-      // I 1. omgang er alt etter ordinær omgangslengde tilleggstid.
       regularMs += overlapMs(start, end, 0, halfMs);
       overtimeMs += Math.max(0, end - Math.max(start, halfMs));
       return;
     }
 
-    // Etter pausen er eventuell tilleggstid fra 1. omgang flyttet til
-    // extraPlayingTimeMs, mens intervallene følger ordinær kampklokke.
+    // Etter pausen er tilleggstid fra 1. omgang bevart separat på spilleren.
     regularMs += overlapMs(start, end, 0, fullTimeMs);
     overtimeMs += Math.max(0, end - Math.max(start, fullTimeMs));
   });
@@ -172,6 +207,135 @@ function startRendering() {
   applyPlayingTimeDisplay();
 }
 
+async function waitForHalfTimeAndPatch(exactMs) {
+  if (!activeMatchRef || precisionPatchRunning || !Number.isFinite(exactMs)) return;
+
+  precisionPatchRunning = true;
+
+  try {
+    let data = null;
+
+    // Vent til app.js har fullført sin ordinære lagring av pausen.
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const snapshot = await getDoc(activeMatchRef);
+      if (snapshot.exists()) {
+        const candidate = snapshot.data();
+        if (candidate?.status === "HALFTIME") {
+          data = candidate;
+          break;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    if (!data) return;
+
+    // Gi den vanlige pause-lagringen et lite øyeblikk til å bli helt ferdig.
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const stableSnapshot = await getDoc(activeMatchRef);
+    if (!stableSnapshot.exists()) return;
+    data = stableSnapshot.data();
+    if (data?.status !== "HALFTIME") return;
+
+    const storedEndMs = Number(data?.firstHalfActualEndMs ?? data?.timer?.elapsedMs);
+    if (!Number.isFinite(storedEndMs)) return;
+
+    // Denne korreksjonen er bare ment å fjerne avrunding til helt kampminutt.
+    // Større avvik tyder på at brukeren har gjort en bevisst manuell korreksjon.
+    if (Math.abs(storedEndMs - exactMs) > 65000) return;
+
+    const playersHome = { ...(data?.players?.home || {}) };
+
+    Object.entries(playersHome).forEach(([id, player]) => {
+      const intervals = Array.isArray(player?.intervals) ? player.intervals : [];
+      const correctedIntervals = intervals
+        .map(interval => {
+          const next = { ...interval };
+          const outMs = next.out == null ? null : Number(next.out);
+
+          // Spillere som var på banen ved pausesignalet fikk ut-tid satt til
+          // det avrundede minuttet. Flytt bare disse til eksakt sekundtid.
+          if (Number.isFinite(outMs) && Math.abs(outMs - storedEndMs) <= 1500) {
+            next.out = exactMs;
+          }
+
+          return next;
+        })
+        .filter(interval => {
+          const inMs = Math.max(0, Number(interval?.in) || 0);
+          const outMs = interval?.out == null ? exactMs : Number(interval.out);
+          return Number.isFinite(outMs) && outMs > inMs;
+        });
+
+      playersHome[id] = {
+        ...player,
+        intervals: correctedIntervals
+      };
+    });
+
+    const halfMinutes = Math.max(1, Number(data?.meta?.halfLengthMin) || 35);
+    const footballMinuteLabel = getFootballMinuteLabel(exactMs, halfMinutes);
+    const events = Array.isArray(data?.events)
+      ? data.events.map(event => {
+          if (!/1\. omgang avsluttet/i.test(event?.rawText || event?.text || "")) {
+            return event;
+          }
+
+          return {
+            ...event,
+            timeMs: exactMs,
+            minute: footballMinuteLabel,
+            period: 1
+          };
+        })
+      : [];
+
+    await updateDoc(activeMatchRef, {
+      timer: {
+        ...(data?.timer || {}),
+        elapsedMs: exactMs,
+        startTimestamp: null
+      },
+      firstHalfActualEndMs: exactMs,
+      "players.home": playersHome,
+      events,
+      updatedAt: serverTimestamp()
+    });
+
+    console.log(`✅ Eksakt pausetid lagret: ${formatTime(exactMs)}`);
+  } catch (error) {
+    console.error("Kunne ikke korrigere pausetiden med sekundpresisjon:", error);
+  } finally {
+    precisionPatchRunning = false;
+    pendingExactFirstHalfMs = null;
+  }
+}
+
+function installPreciseHalfTimeCapture() {
+  if (!halfTimeBtn || !confirmHalfTimeEndBtn) return;
+
+  halfTimeBtn.addEventListener("click", () => {
+    const exactMs = getDisplayedClockMs();
+    if (Number.isFinite(exactMs) && exactMs > 0) {
+      pendingExactFirstHalfMs = exactMs;
+    }
+    halfTimeInputWasEdited = false;
+  }, true);
+
+  halfTimeEndInput?.addEventListener("input", () => {
+    halfTimeInputWasEdited = true;
+  });
+
+  confirmHalfTimeEndBtn.addEventListener("click", () => {
+    if (confirmHalfTimeEndBtn.textContent.trim() !== "Start pause") return;
+    if (halfTimeInputWasEdited) return;
+    if (!Number.isFinite(pendingExactFirstHalfMs)) return;
+
+    const exactMs = pendingExactFirstHalfMs;
+    setTimeout(() => waitForHalfTimeAndPatch(exactMs), 0);
+  }, true);
+}
+
 async function subscribeToMatch(user) {
   if (!matchId || !user || getApps().length === 0) return;
 
@@ -200,6 +364,7 @@ async function subscribeToMatch(user) {
 
   if (!selectedRef) return;
 
+  activeMatchRef = selectedRef;
   unsubscribeMatch?.();
   unsubscribeMatch = onSnapshot(selectedRef, snapshot => {
     if (!snapshot.exists()) return;
@@ -210,6 +375,7 @@ async function subscribeToMatch(user) {
 
 function init() {
   startRendering();
+  installPreciseHalfTimeCapture();
 
   if (!matchId || getApps().length === 0) return;
 
