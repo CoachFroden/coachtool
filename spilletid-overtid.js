@@ -25,12 +25,12 @@ const halfTimeEndInput = document.getElementById("halfTimeEndInput");
 const confirmHalfTimeEndBtn = document.getElementById("confirmHalfTimeEndBtn");
 
 let latestMatchData = null;
-let unsubscribeMatch = null;
-let renderTimer = null;
 let activeMatchRef = null;
+let unsubscribeMatch = null;
 let pendingExactFirstHalfMs = null;
 let halfTimeInputWasEdited = false;
 let precisionPatchRunning = false;
+let repairRunning = false;
 
 function normalizeName(value) {
   return String(value || "")
@@ -44,17 +44,16 @@ function firstNameKey(value) {
 }
 
 function formatTime(ms) {
-  const safeMs = Math.max(0, Number(ms) || 0);
-  const totalSeconds = Math.floor(safeMs / 1000);
+  const totalSeconds = Math.floor(Math.max(0, Number(ms) || 0) / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function formatRegularPlusOvertime(regularMs, overtimeMs, overtimeClass = "overtime") {
+function formatRegularPlusOvertime(regularMs, overtimeMs, className) {
   const extra = Math.max(0, Number(overtimeMs) || 0);
   return extra > 0
-    ? `${formatTime(regularMs)} <span class="${overtimeClass}">(+${formatTime(extra)})</span>`
+    ? `${formatTime(regularMs)} <span class="${className}">(+${formatTime(extra)})</span>`
     : formatTime(regularMs);
 }
 
@@ -71,104 +70,126 @@ function timestampToMs(value) {
 
 function getCurrentMatchTimeMs(data) {
   const elapsedMs = Math.max(0, Number(data?.timer?.elapsedMs) || 0);
-  if (data?.status !== "LIVE") return elapsedMs;
+  if (String(data?.status || "").toUpperCase() !== "LIVE") return elapsedMs;
 
   const startMs = timestampToMs(data?.timer?.startTimestamp);
   if (!Number.isFinite(startMs)) return elapsedMs;
-
   return elapsedMs + Math.max(0, Date.now() - startMs);
 }
 
-function getDisplayedClockMs() {
-  const clockText = String(gameClock?.textContent || "");
-  const matches = [...clockText.matchAll(/(\d+):(\d{2})/g)];
-  if (matches.length === 0) return null;
+function getPlayersInfo(data) {
+  const players = data?.players;
 
-  let totalMs = (Number(matches[0][1]) * 60 + Number(matches[0][2])) * 1000;
+  // Ny/vanlig kampstruktur: players: { h1: {...}, h2: {...} }
+  if (players && typeof players === "object" && !Array.isArray(players)) {
+    const directValues = Object.values(players);
+    const looksDirect = directValues.some(value =>
+      value && typeof value === "object" && ("name" in value || "intervals" in value)
+    );
 
-  if (matches.length > 1 && clockText.includes("(+")) {
-    totalMs += (Number(matches[1][1]) * 60 + Number(matches[1][2])) * 1000;
+    if (looksDirect) {
+      return {
+        playersObject: players,
+        updateField: "players"
+      };
+    }
   }
 
-  return totalMs;
+  // Støtte for eventuell eldre/nøstet struktur.
+  if (players?.home && typeof players.home === "object") {
+    return {
+      playersObject: players.home,
+      updateField: "players.home"
+    };
+  }
+
+  return {
+    playersObject: {},
+    updateField: "players"
+  };
+}
+
+function getDisplayedClockMs() {
+  const text = String(gameClock?.textContent || "");
+  const matches = [...text.matchAll(/(\d+):(\d{2})/g)];
+  if (matches.length === 0) return null;
+
+  let ms = (Number(matches[0][1]) * 60 + Number(matches[0][2])) * 1000;
+
+  if (matches.length > 1 && text.includes("(+")) {
+    ms += (Number(matches[1][1]) * 60 + Number(matches[1][2])) * 1000;
+  }
+
+  return ms;
 }
 
 function getFootballMinuteLabel(timeMs, halfMinutes) {
   const halfMs = halfMinutes * 60 * 1000;
-  if (timeMs <= halfMs) {
-    return String(Math.max(1, Math.ceil(timeMs / 60000)));
-  }
+  if (timeMs <= halfMs) return String(Math.max(1, Math.ceil(timeMs / 60000)));
 
-  const overtimeMs = Math.max(0, timeMs - halfMs);
-  const overtimeMinute = Math.max(1, Math.ceil(overtimeMs / 60000));
+  const overtimeMinute = Math.max(1, Math.ceil((timeMs - halfMs) / 60000));
   return `${halfMinutes} + ${overtimeMinute}`;
 }
 
 function overlapMs(start, end, rangeStart, rangeEnd) {
-  const from = Math.max(start, rangeStart);
-  const to = Math.min(end, rangeEnd);
-  return Math.max(0, to - from);
+  return Math.max(0, Math.min(end, rangeEnd) - Math.max(start, rangeStart));
 }
 
 function getPlayingTimeBreakdown(player, data) {
   const halfMinutes = Math.max(1, Number(data?.meta?.halfLengthMin) || 35);
   const halfMs = halfMinutes * 60 * 1000;
   const fullTimeMs = halfMs * 2;
-  const currentTimeMs = getCurrentMatchTimeMs(data);
   const period = Number(data?.period) === 2 ? 2 : 1;
+  const currentTimeMs = getCurrentMatchTimeMs(data);
   const intervals = Array.isArray(player?.intervals) ? player.intervals : [];
 
   let regularMs = 0;
   let overtimeMs = Math.max(0, Number(player?.extraPlayingTimeMs) || 0);
 
-  intervals.forEach(interval => {
+  for (const interval of intervals) {
     const start = Math.max(0, Number(interval?.in) || 0);
-    const rawEnd = interval?.out == null
-      ? currentTimeMs
-      : Math.max(0, Number(interval.out) || 0);
-    const end = Math.max(start, rawEnd);
+    const rawEnd = interval?.out == null ? currentTimeMs : Number(interval.out);
+    const end = Math.max(start, Number.isFinite(rawEnd) ? rawEnd : start);
 
     if (period === 1) {
       regularMs += overlapMs(start, end, 0, halfMs);
       overtimeMs += Math.max(0, end - Math.max(start, halfMs));
-      return;
+    } else {
+      regularMs += overlapMs(start, end, 0, fullTimeMs);
+      overtimeMs += Math.max(0, end - Math.max(start, fullTimeMs));
     }
+  }
 
-    regularMs += overlapMs(start, end, 0, fullTimeMs);
-    overtimeMs += Math.max(0, end - Math.max(start, fullTimeMs));
-  });
-
-  return {
-    regularMs,
-    overtimeMs,
-    totalMs: regularMs + overtimeMs
-  };
+  return { regularMs, overtimeMs, totalMs: regularMs + overtimeMs };
 }
 
 function getPlayerNameFromRow(row) {
   const nameElement = row.querySelector(".player-name");
   if (!nameElement) return "";
 
-  const firstTextNode = [...nameElement.childNodes].find(node => node.nodeType === Node.TEXT_NODE);
-  return normalizeName(firstTextNode?.textContent || nameElement.textContent);
+  const textNode = [...nameElement.childNodes]
+    .find(node => node.nodeType === Node.TEXT_NODE);
+
+  return normalizeName(textNode?.textContent || nameElement.textContent);
 }
 
 function buildPlayerLookup(players) {
   const exact = new Map();
   const first = new Map();
-  const duplicateFirstNames = new Set();
+  const duplicates = new Set();
 
-  players.forEach(player => {
-    if (!player?.name) return;
+  for (const player of players) {
+    if (!player?.name) continue;
+
     exact.set(normalizeName(player.name), player);
-
     const key = firstNameKey(player.name);
-    if (!key) return;
-    if (first.has(key)) duplicateFirstNames.add(key);
-    else first.set(key, player);
-  });
 
-  duplicateFirstNames.forEach(key => first.delete(key));
+    if (!key) continue;
+    if (first.has(key)) duplicates.add(key);
+    else first.set(key, player);
+  }
+
+  for (const key of duplicates) first.delete(key);
   return { exact, first };
 }
 
@@ -177,48 +198,44 @@ function applyMatchClockDisplay() {
 
   const status = String(latestMatchData?.status || "").toUpperCase();
   const period = Number(latestMatchData?.period) === 2 ? 2 : 1;
-  const halfMinutes = Math.max(1, Number(latestMatchData?.meta?.halfLengthMin) || 35);
-  const halfMs = halfMinutes * 60 * 1000;
 
-  // Live-klokken i app.js håndterer allerede tilleggstid riktig.
-  // Her retter vi pausevisningen, som ellers viser totalen som én rå tid.
   if (!["HALFTIME", "PAUSED"].includes(status) || period !== 1) return;
 
+  const halfMinutes = Math.max(1, Number(latestMatchData?.meta?.halfLengthMin) || 35);
+  const halfMs = halfMinutes * 60 * 1000;
   const actualEndMs = Number.isFinite(Number(latestMatchData?.firstHalfActualEndMs))
     ? Number(latestMatchData.firstHalfActualEndMs)
     : Math.max(0, Number(latestMatchData?.timer?.elapsedMs) || 0);
 
   const regularMs = Math.min(actualEndMs, halfMs);
   const overtimeMs = Math.max(0, actualEndMs - halfMs);
-  const wantedHtml = formatRegularPlusOvertime(regularMs, overtimeMs, "overtime");
+  const wanted = formatRegularPlusOvertime(regularMs, overtimeMs, "overtime");
 
-  if (gameClock.innerHTML !== wantedHtml) {
-    gameClock.innerHTML = wantedHtml;
-  }
+  if (gameClock.innerHTML !== wanted) gameClock.innerHTML = wanted;
 }
 
 function applyPlayingTimeDisplay() {
   if (!playingTimeList || !latestMatchData) return;
 
-  const players = Object.values(latestMatchData?.players?.home || {});
+  const { playersObject } = getPlayersInfo(latestMatchData);
+  const players = Object.values(playersObject);
   const lookup = buildPlayerLookup(players);
 
   playingTimeList.querySelectorAll("li:not(.pt-header)").forEach(row => {
     const rowName = getPlayerNameFromRow(row);
     const player = lookup.exact.get(rowName) || lookup.first.get(firstNameKey(rowName));
     const valueElement = row.querySelector(".minutes-value");
+
     if (!player || !valueElement) return;
 
     const { regularMs, overtimeMs } = getPlayingTimeBreakdown(player, latestMatchData);
-    const wantedHtml = formatRegularPlusOvertime(
+    const wanted = formatRegularPlusOvertime(
       regularMs,
       overtimeMs,
       "player-overtime"
     );
 
-    if (valueElement.innerHTML !== wantedHtml) {
-      valueElement.innerHTML = wantedHtml;
-    }
+    if (valueElement.innerHTML !== wanted) valueElement.innerHTML = wanted;
   });
 }
 
@@ -244,16 +261,74 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
-function startRendering() {
-  ensureStyles();
+async function repairHalfTimePlayers(data) {
+  if (!activeMatchRef || repairRunning) return;
+  if (String(data?.status || "").toUpperCase() !== "HALFTIME") return;
+  if (Number(data?.period) !== 1) return;
 
-  if (!renderTimer) {
-    // app.js tegner UI fortløpende. Legg formatlaget rett etterpå slik at
-    // klokke og spillerliste alltid ender med samme visningsmodell.
-    renderTimer = setInterval(applyDisplays, 200);
+  const exactEndMs = Number(data?.firstHalfActualEndMs);
+  if (!Number.isFinite(exactEndMs) || exactEndMs <= 0) return;
+
+  const halfMinutes = Math.max(1, Number(data?.meta?.halfLengthMin) || 35);
+  const halfMs = halfMinutes * 60 * 1000;
+  const actualOvertimeMs = Math.max(0, exactEndMs - halfMs);
+  const { playersObject, updateField } = getPlayersInfo(data);
+  const corrected = {};
+  let changed = false;
+
+  for (const [id, player] of Object.entries(playersObject)) {
+    const intervals = Array.isArray(player?.intervals) ? player.intervals : [];
+
+    const fixedIntervals = intervals
+      .map(interval => {
+        const next = { ...interval };
+        const start = Math.max(0, Number(next.in) || 0);
+        const out = next.out == null ? null : Number(next.out);
+
+        // Ved pause kunne appen tidligere lagre 1:13 som kampminutt 2:00.
+        // Alt som strekker seg forbi det eksakte pausesignalet kuttes til eksakt tid.
+        if (Number.isFinite(out) && out > exactEndMs && start < exactEndMs) {
+          next.out = exactEndMs;
+          changed = true;
+        }
+
+        return next;
+      })
+      .filter(interval => {
+        const start = Math.max(0, Number(interval?.in) || 0);
+        const out = interval?.out == null ? exactEndMs : Number(interval.out);
+        const keep = start < exactEndMs && Number.isFinite(out) && out > start;
+        if (!keep) changed = true;
+        return keep;
+      });
+
+    let extra = Math.max(0, Number(player?.extraPlayingTimeMs) || 0);
+    if (extra > actualOvertimeMs) {
+      extra = actualOvertimeMs;
+      changed = true;
+    }
+
+    corrected[id] = {
+      ...player,
+      intervals: fixedIntervals,
+      extraPlayingTimeMs: extra
+    };
   }
 
-  applyDisplays();
+  if (!changed) return;
+
+  repairRunning = true;
+  try {
+    await updateDoc(activeMatchRef, {
+      [updateField]: corrected,
+      updatedAt: serverTimestamp()
+    });
+    console.log("✅ Spilletid ved pause korrigert til eksakt tid");
+  } catch (error) {
+    console.error("Kunne ikke korrigere spillerintervall ved pause:", error);
+  } finally {
+    repairRunning = false;
+  }
 }
 
 async function waitForHalfTimeAndPatch(exactMs) {
@@ -268,7 +343,7 @@ async function waitForHalfTimeAndPatch(exactMs) {
       const snapshot = await getDoc(activeMatchRef);
       if (snapshot.exists()) {
         const candidate = snapshot.data();
-        if (candidate?.status === "HALFTIME") {
+        if (String(candidate?.status || "").toUpperCase() === "HALFTIME") {
           data = candidate;
           break;
         }
@@ -278,58 +353,59 @@ async function waitForHalfTimeAndPatch(exactMs) {
 
     if (!data) return;
 
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 250));
     const stableSnapshot = await getDoc(activeMatchRef);
     if (!stableSnapshot.exists()) return;
     data = stableSnapshot.data();
-    if (data?.status !== "HALFTIME") return;
+
+    if (String(data?.status || "").toUpperCase() !== "HALFTIME") return;
 
     const storedEndMs = Number(data?.firstHalfActualEndMs ?? data?.timer?.elapsedMs);
     if (!Number.isFinite(storedEndMs)) return;
-
     if (Math.abs(storedEndMs - exactMs) > 65000) return;
 
-    const playersHome = { ...(data?.players?.home || {}) };
+    const halfMinutes = Math.max(1, Number(data?.meta?.halfLengthMin) || 35);
+    const halfMs = halfMinutes * 60 * 1000;
+    const actualOvertimeMs = Math.max(0, exactMs - halfMs);
+    const { playersObject, updateField } = getPlayersInfo(data);
+    const correctedPlayers = {};
 
-    Object.entries(playersHome).forEach(([id, player]) => {
+    for (const [id, player] of Object.entries(playersObject)) {
       const intervals = Array.isArray(player?.intervals) ? player.intervals : [];
+
       const correctedIntervals = intervals
         .map(interval => {
           const next = { ...interval };
-          const outMs = next.out == null ? null : Number(next.out);
+          const start = Math.max(0, Number(next.in) || 0);
+          const out = next.out == null ? null : Number(next.out);
 
-          if (Number.isFinite(outMs) && Math.abs(outMs - storedEndMs) <= 1500) {
+          if (Number.isFinite(out) && out > exactMs && start < exactMs) {
             next.out = exactMs;
           }
 
           return next;
         })
         .filter(interval => {
-          const inMs = Math.max(0, Number(interval?.in) || 0);
-          const outMs = interval?.out == null ? exactMs : Number(interval.out);
-          return Number.isFinite(outMs) && outMs > inMs;
+          const start = Math.max(0, Number(interval?.in) || 0);
+          const out = interval?.out == null ? exactMs : Number(interval.out);
+          return start < exactMs && Number.isFinite(out) && out > start;
         });
 
-      playersHome[id] = {
+      correctedPlayers[id] = {
         ...player,
-        intervals: correctedIntervals
+        intervals: correctedIntervals,
+        extraPlayingTimeMs: Math.min(
+          Math.max(0, Number(player?.extraPlayingTimeMs) || 0),
+          actualOvertimeMs
+        )
       };
-    });
+    }
 
-    const halfMinutes = Math.max(1, Number(data?.meta?.halfLengthMin) || 35);
-    const footballMinuteLabel = getFootballMinuteLabel(exactMs, halfMinutes);
+    const label = getFootballMinuteLabel(exactMs, halfMinutes);
     const events = Array.isArray(data?.events)
       ? data.events.map(event => {
-          if (!/1\. omgang avsluttet/i.test(event?.rawText || event?.text || "")) {
-            return event;
-          }
-
-          return {
-            ...event,
-            timeMs: exactMs,
-            minute: footballMinuteLabel,
-            period: 1
-          };
+          if (!/1\. omgang avsluttet/i.test(event?.rawText || event?.text || "")) return event;
+          return { ...event, timeMs: exactMs, minute: label, period: 1 };
         })
       : [];
 
@@ -340,14 +416,14 @@ async function waitForHalfTimeAndPatch(exactMs) {
         startTimestamp: null
       },
       firstHalfActualEndMs: exactMs,
-      "players.home": playersHome,
+      [updateField]: correctedPlayers,
       events,
       updatedAt: serverTimestamp()
     });
 
-    console.log(`✅ Eksakt pausetid lagret: ${formatTime(exactMs)}`);
+    console.log(`✅ Eksakt pausetid og spillerdata lagret: ${formatTime(exactMs)}`);
   } catch (error) {
-    console.error("Kunne ikke korrigere pausetiden med sekundpresisjon:", error);
+    console.error("Kunne ikke lagre eksakt pausetid:", error);
   } finally {
     precisionPatchRunning = false;
     pendingExactFirstHalfMs = null;
@@ -359,9 +435,7 @@ function installPreciseHalfTimeCapture() {
 
   halfTimeBtn.addEventListener("click", () => {
     const exactMs = getDisplayedClockMs();
-    if (Number.isFinite(exactMs) && exactMs > 0) {
-      pendingExactFirstHalfMs = exactMs;
-    }
+    if (Number.isFinite(exactMs) && exactMs > 0) pendingExactFirstHalfMs = exactMs;
     halfTimeInputWasEdited = false;
   }, true);
 
@@ -393,7 +467,7 @@ async function subscribeToMatch(user) {
     const coachSnap = await getDoc(coachRef);
     if (coachSnap.exists()) selectedRef = coachRef;
   } catch (error) {
-    console.debug("Spilletid: hovedkamp ikke tilgjengelig for denne brukeren.", error);
+    console.debug("Spilletid: hovedkamp ikke tilgjengelig.", error);
   }
 
   if (!selectedRef) {
@@ -411,14 +485,18 @@ async function subscribeToMatch(user) {
   unsubscribeMatch?.();
   unsubscribeMatch = onSnapshot(selectedRef, snapshot => {
     if (!snapshot.exists()) return;
+
     latestMatchData = snapshot.data();
     applyDisplays();
+    repairHalfTimePlayers(latestMatchData);
   });
 }
 
 function init() {
-  startRendering();
+  ensureStyles();
   installPreciseHalfTimeCapture();
+
+  setInterval(applyDisplays, 200);
 
   if (!matchId || getApps().length === 0) return;
 
