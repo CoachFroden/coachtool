@@ -1,4 +1,4 @@
-import "./squad-status-ui.js?v=20260830-5";
+import "./squad-status-ui.js?v=20260830-6";
 
 // Spillere som ikke lenger skal vises i aktive valg i appen.
 // Historiske kampdata og statistikk beholdes urørt.
