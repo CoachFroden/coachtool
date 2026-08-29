@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Samnanger G14 | Coach</title>
-  <link rel="stylesheet" href="oversikt.css?v=20260830-6" />
+  <link rel="stylesheet" href="oversikt.css?v=20260830-7" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#08111f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -52,29 +52,29 @@
     </section>
 
     <nav class="mainNav" aria-label="Hovedmeny">
-      <button id="allMatchesBtn" class="navCard" type="button">
+      <button id="allMatchesBtn" class="navCard navUpcoming" type="button">
         <span class="navIcon">▤</span>
         <span><strong>Kamper</strong><small>Kommende</small></span>
         <b>›</b>
       </button>
-      <button id="allPlayedBtn" class="navCard" type="button">
+      <button id="allPlayedBtn" class="navCard navPlayed" type="button">
         <span class="navIcon">✓</span>
         <span><strong>Spilte</strong><small>Resultater og hendelser</small></span>
         <b>›</b>
       </button>
-      <button id="statsBtn" class="navCard" type="button">
+      <button id="statsBtn" class="navCard navStats" type="button">
         <span class="navIcon">▥</span>
         <span><strong>Statistikk</strong><small>Mål og spilletid</small></span>
         <b>›</b>
       </button>
-      <a class="navCard" href="https://www.fotball.no/fotballdata/lag/hjem/?fiksId=170874&underside=tabeller" target="_blank" rel="noopener noreferrer">
+      <a class="navCard navTable" href="https://www.fotball.no/fotballdata/lag/hjem/?fiksId=170874&underside=tabeller" target="_blank" rel="noopener noreferrer">
         <span class="navIcon">#</span>
         <span><strong>Tabell</strong><small>MinFotball</small></span>
         <b>↗</b>
       </a>
     </nav>
 
-    <section class="contentSection">
+    <section class="contentSection upcomingSection">
       <div class="sectionHeading">
         <div>
           <span class="sectionLabel">FREMOVER</span>
@@ -87,7 +87,7 @@
       </div>
     </section>
 
-    <section class="contentSection lastSection">
+    <section class="contentSection resultSection lastSection">
       <div class="sectionHeading">
         <div>
           <span class="sectionLabel">SIST SPILT</span>
