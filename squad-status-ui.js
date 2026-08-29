@@ -7,17 +7,12 @@ function ensureSquadStatusStyles() {
   const style = document.createElement("style");
   style.id = "squad-status-ui-style";
   style.textContent = `
-    #squadModal .modal-content {
-      max-width: 430px;
-    }
-
+    #squadModal .modal-content { max-width: 430px; }
     #squadModal #squadList {
-      display:flex;
-      flex-direction:column;
-      gap:0;
       padding:0;
-      margin:12px 0 0;
+      margin:14px 0 0;
       list-style:none;
+      display:block;
     }
 
     #squadModal .squad-group-heading {
@@ -25,42 +20,27 @@ function ensureSquadStatusStyles() {
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      margin-top:16px;
-      padding:8px 4px 7px;
+      margin:18px 0 0;
+      padding:0 2px 8px;
       border:0;
-      border-bottom:1px solid rgba(148,163,184,.14);
       background:transparent;
     }
-
     #squadModal .squad-group-heading:first-child { margin-top:0; }
-    #squadModal .squad-group-heading strong,
-    #squadModal .squad-group-heading small { display:block; }
-    #squadModal .squad-group-heading strong {
-      font-size:12px;
-      font-weight:850;
-      letter-spacing:.07em;
-    }
-    #squadModal .squad-group-heading small {
-      margin-top:2px;
-      color:#7f91a8;
-      font-size:8px;
-    }
+    #squadModal .squad-group-heading strong { font-size:12px; letter-spacing:.08em; }
+    #squadModal .squad-group-heading small { display:none; }
     #squadModal .squad-group-heading > span {
       min-width:28px;
       height:28px;
       display:grid;
       place-items:center;
       border-radius:999px;
-      font-weight:850;
       font-size:11px;
+      font-weight:850;
+      background:rgba(148,163,184,.10);
     }
-
     #squadModal .squad-group-heading.starter { color:#4ade80; }
-    #squadModal .squad-group-heading.starter > span { background:rgba(22,163,74,.14); }
     #squadModal .squad-group-heading.bench { color:#fbbf24; }
-    #squadModal .squad-group-heading.bench > span { background:rgba(245,158,11,.12); }
     #squadModal .squad-group-heading.absent { color:#94a3b8; }
-    #squadModal .squad-group-heading.absent > span { background:rgba(100,116,139,.12); }
 
     #squadModal .squad-row {
       min-height:46px;
@@ -68,42 +48,26 @@ function ensureSquadStatusStyles() {
       grid-template-columns:minmax(0,1fr) auto;
       align-items:center;
       gap:10px;
-      padding:7px 4px !important;
+      padding:0 2px !important;
+      margin:0 !important;
       border:0 !important;
-      border-bottom:1px solid rgba(148,163,184,.09) !important;
       border-radius:0 !important;
+      border-bottom:1px solid rgba(148,163,184,.12) !important;
       background:transparent !important;
       color:#f8fafc;
-      box-shadow:none !important;
+      opacity:1 !important;
     }
-
-    #squadModal .squad-row:last-of-type {
-      border-bottom-color:transparent !important;
-    }
-
-    #squadModal .squad-row.squad-starter {
-      background:linear-gradient(90deg,rgba(22,163,74,.055),transparent 70%) !important;
-    }
-    #squadModal .squad-row.squad-bench {
-      background:linear-gradient(90deg,rgba(245,158,11,.045),transparent 70%) !important;
-    }
-    #squadModal .squad-row.squad-absent {
-      opacity:.56 !important;
-      background:transparent !important;
-    }
-
+    #squadModal .squad-row:last-of-type { border-bottom-color:transparent !important; }
     #squadModal .squad-row .player-name {
       min-width:0;
-      justify-self:start !important;
-      text-align:left !important;
-      font-size:14px;
-      font-weight:720;
-      color:#f1f5f9;
+      font-size:15px;
+      font-weight:650;
       text-decoration:none !important;
+      color:#f8fafc !important;
     }
-    #squadModal .squad-starter .player-name { color:#7ee7a1; }
-    #squadModal .squad-bench .player-name { color:#fde68a; }
-    #squadModal .squad-absent .player-name { color:#a1aab8; }
+    #squadModal .squad-starter .player-name { color:#dffbe8 !important; }
+    #squadModal .squad-bench .player-name { color:#fff6dd !important; }
+    #squadModal .squad-absent .player-name { color:#94a3b8 !important; }
 
     #squadModal .squad-original-control {
       position:absolute !important;
@@ -118,41 +82,38 @@ function ensureSquadStatusStyles() {
     }
 
     #squadModal .squad-status-select {
-      justify-self:end;
-      width:104px;
+      width:112px;
       min-height:32px;
-      padding:0 25px 0 9px;
-      border-radius:999px;
+      padding:0 28px 0 9px;
+      border-radius:9px;
       border:1px solid rgba(148,163,184,.18);
-      background:#0d1726;
-      color:#dce6f2;
+      background:#0b1423;
+      color:#e5edf7;
       font:inherit;
       font-size:10px;
-      font-weight:780;
-      outline:none;
+      font-weight:750;
     }
-
     #squadModal .squad-starter .squad-status-select {
-      border-color:rgba(74,222,128,.30);
-      color:#6ee7a0;
+      border-color:rgba(74,222,128,.28);
+      color:#4ade80;
       background:rgba(22,163,74,.08);
     }
     #squadModal .squad-bench .squad-status-select {
-      border-color:rgba(245,158,11,.28);
+      border-color:rgba(245,158,11,.26);
       color:#fbbf24;
       background:rgba(245,158,11,.07);
     }
     #squadModal .squad-absent .squad-status-select {
       color:#94a3b8;
-      background:rgba(100,116,139,.07);
+      background:rgba(100,116,139,.06);
     }
 
     #squadModal .starter-counter {
       display:inline-flex;
       align-items:center;
-      min-height:30px;
+      min-height:32px;
       padding:0 10px;
-      border:1px solid rgba(74,222,128,.18);
+      border:1px solid rgba(74,222,128,.20);
       border-radius:999px;
       background:rgba(22,163,74,.06);
       color:#86efac;
@@ -160,13 +121,9 @@ function ensureSquadStatusStyles() {
       font-size:11px;
     }
 
-    #squadModal #loanPlayersBtn {
-      margin-top:8px;
-    }
-
-    @media (max-width:390px){
-      #squadModal .squad-row{grid-template-columns:minmax(0,1fr) 100px}
-      #squadModal .squad-status-select{width:100px;font-size:9.5px}
+    @media (max-width:390px) {
+      #squadModal .squad-status-select { width:104px; font-size:9.5px; }
+      #squadModal .squad-row .player-name { font-size:14px; }
     }
   `;
   document.head.appendChild(style);
@@ -220,7 +177,7 @@ if (modal && list) {
       select.innerHTML = `
         <option value="starter">Starter</option>
         <option value="bench">Innbytter</option>
-        <option value="absent">Ikke med</option>
+        <option value="absent">Ikke til stede</option>
       `;
       select.addEventListener("click", (event) => event.stopPropagation());
       select.addEventListener("change", (event) => {
@@ -232,10 +189,10 @@ if (modal && list) {
     return select;
   };
 
-  function makeHeading(kind, title, subtitle, count) {
+  function makeHeading(kind, title, count) {
     const li = document.createElement("li");
     li.className = `squad-group-heading ${kind}`;
-    li.innerHTML = `<div><strong>${title}</strong><small>${subtitle}</small></div><span>${count}</span>`;
+    li.innerHTML = `<div><strong>${title}</strong></div><span>${count}</span>`;
     return li;
   }
 
@@ -262,14 +219,14 @@ if (modal && list) {
 
       const fragment = document.createDocumentFragment();
       const sections = [
-        ["starter", "STARTERE", "Fra start", groups.starter],
-        ["bench", "INNBYTTERE", "På benken", groups.bench],
-        ["absent", "IKKE TIL STEDE", "Ikke med i troppen", groups.absent]
+        ["starter", "STARTERE", groups.starter],
+        ["bench", "INNBYTTERE", groups.bench],
+        ["absent", "IKKE TIL STEDE", groups.absent]
       ];
 
-      sections.forEach(([kind, title, subtitle, rowsInGroup]) => {
+      sections.forEach(([kind, title, rowsInGroup]) => {
         if (!rowsInGroup.length) return;
-        fragment.appendChild(makeHeading(kind, title, subtitle, rowsInGroup.length));
+        fragment.appendChild(makeHeading(kind, title, rowsInGroup.length));
         rowsInGroup.forEach((row) => fragment.appendChild(row));
       });
       list.replaceChildren(fragment);
