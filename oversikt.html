@@ -2,84 +2,99 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Oversikt</title>
-  <link rel="stylesheet" href="oversikt.css" />
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Coach | Oversikt</title>
+  <link rel="stylesheet" href="oversikt.css?v=20260829-2" />
   <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#0f172a" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Coach" /><meta name="mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="apple-touch-icon" href="icon-192.png" />
-
+  <meta name="theme-color" content="#06101f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Coach" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
-
 <body>
-  <main class="wrap">
-<header class="top">
-  <div class="topLeft">
-    <h1 class="mainTitle">Spiller & Kampoversikt</h1>
-    <div class="meta">
-      <span id="userLine"></span>
-    </div>
-  </div>
+  <div class="ambient ambientOne"></div>
+  <div class="ambient ambientTwo"></div>
 
-</header>
+  <main class="wrap">
+    <header class="top">
+      <div class="brandBlock">
+        <div class="brandMark" aria-hidden="true"><span></span></div>
+        <div>
+          <p class="eyebrow">SAMNANGER · COACH</p>
+          <h1 class="mainTitle">Kommandosentral</h1>
+          <div class="meta"><span id="userLine"></span></div>
+        </div>
+      </div>
+      <div class="topActions">
+        <button id="coachOnlyBtn" class="iconAction coach-only-btn" title="Dashboard" aria-label="Dashboard">⌂</button>
+        <button id="logoutBtn" class="iconAction logoutBtnSmall" title="Logg ut" aria-label="Logg ut">↗</button>
+      </div>
+    </header>
+
+    <section class="heroCard" aria-label="Hurtigvalg">
+      <div class="heroGlow"></div>
+      <div class="heroCopy">
+        <span class="livePill"><i></i> KAMPDAG</span>
+        <h2>Alt du trenger.<br><span>Én plass.</span></h2>
+        <p>Lagoppstilling, kampregistrering, spillerutvikling og statistikk.</p>
+      </div>
+      <button id="openMatchAppBtn" class="heroBtn" type="button">
+        <span class="heroBtnIcon">⚽</span>
+        <span><small>Hurtigstart</small><strong>Åpne kampregistrering</strong></span>
+        <b>→</b>
+      </button>
+    </section>
 
     <section class="grid">
-      <div class="card">
-<div class="cardHeader">
-  <h2>Oversikt</h2>
+      <div class="card controlCard">
+        <div class="cardHeader">
+          <div>
+            <span class="sectionLabel">ARBEIDSOMRÅDE</span>
+            <h2>Hva vil du jobbe med?</h2>
+          </div>
+        </div>
 
-  <div class="cardHeaderActions">
-    <button id="coachOnlyBtn" class="coach-only-btn">Dashboard</button>
-    <button id="logoutBtn" class="logoutBtnSmall">Logg ut</button>
-  </div>
-</div>
-  <p class="hint">Velg hva du vil se.</p>
+        <div class="segmented" role="tablist" aria-label="Velg visning">
+          <button id="tabPlayers" class="segBtn isActive" type="button" role="tab" aria-selected="true">
+            <span class="segIcon">◎</span><span><strong>Spillere</strong><small>Refleksjon & utvikling</small></span>
+          </button>
+          <button id="tabMatch" class="segBtn" type="button" role="tab" aria-selected="false">
+            <span class="segIcon">▱</span><span><strong>Kamper</strong><small>Plan, resultat & stats</small></span>
+          </button>
+        </div>
 
-  <!-- Førstevalg -->
-  <div class="segmented" role="tablist" aria-label="Velg visning">
-    <button id="tabPlayers" class="segBtn isActive" type="button" role="tab" aria-selected="true">Spillere</button>
-    <button id="tabMatch" class="segBtn" type="button" role="tab" aria-selected="false">Kamp</button>
-	<button id="openMatchAppBtn" class="heroBtn">
-  ⚽ Åpne kampregistrering
-</button>
-  </div>
+        <div id="playersPanel" class="panel">
+          <label class="fieldLabel" for="playersSelect">VELG SPILLER</label>
+          <select id="playersSelect" class="playerSelect"><option value="">Laster spillere…</option></select>
+        </div>
 
-  <!-- Spillere -->
-  <div id="playersPanel" class="panel">
-    <p class="hint">Velg en spiller for å hente siste refleksjoner.</p>
-    <select id="playersSelect" class="playerSelect">
-      <option value="">Laster spillere…</option>
-    </select>
-  </div>
+        <div id="matchPanel" class="panel isHidden">
+          <label class="fieldLabel" for="matchSelect">KAMPVERKTØY</label>
+          <select id="matchSelect" class="playerSelect">
+            <option value="">Velg…</option>
+            <option value="upcoming">Kommende kamper</option>
+            <option value="played">Spilte kamper</option>
+            <option value="stats">Statistikk</option>
+          </select>
+        </div>
+      </div>
 
-  <!-- Kamp -->
-  <div id="matchPanel" class="panel isHidden">
-    <p class="hint">Velg hva du vil se for kamper.</p>
-    <select id="matchSelect" class="playerSelect">
-      <option value="">Velg…</option>
-      <option value="played">Spilte kamper</option>
-      <option value="upcoming">Kommende kamper</option>
-      <option value="stats">Statistikk</option>
-    </select>
-  </div>
-</div>
-
-      <div class="card isHidden" id="rightPanel">
-  <h2 id="rightTitle">Refleksjoner</h2>
-  <p id="selectedPlayer" class="hint">Velg en spiller.</p>
-  <div id="entries" class="list"></div>
-</div>
+      <div class="card isHidden detailCard" id="rightPanel">
+        <div class="detailHeader">
+          <span class="sectionLabel">DETALJER</span>
+          <h2 id="rightTitle">Refleksjoner</h2>
+          <p id="selectedPlayer" class="hint">Velg en spiller.</p>
+        </div>
+        <div id="entries" class="list"></div>
+      </div>
     </section>
 
     <p id="errorMsg" class="error"></p>
+    <footer class="appFooter"><span>COACH TOOL</span><i></i><span>2026</span></footer>
   </main>
 
-  <script type="module" src="oversikt.js"></script>
+  <script type="module" src="oversikt.js?v=20260829-2"></script>
 </body>
 </html>
