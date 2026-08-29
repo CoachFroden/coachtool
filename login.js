@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  signOut
+  signOut,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
 import {
@@ -38,6 +39,7 @@ function setInfo(msg) {
 }
 
 let isRegisterMode = false;
+let manualLoginInProgress = false;
 
 function setAuthMode(mode) {
   isRegisterMode = mode === "register";
@@ -64,16 +66,30 @@ function setAuthMode(mode) {
 }
 
 function routeByRole(role) {
-  // Tilpass filnavnene om du bruker andre
-  if (role === "coach") {
-    window.location.href = "fremside.html";
-  } else if (role === "assistantCoach") {
+  if (role === "coach" || role === "assistantCoach") {
     window.location.href = "oversikt.html";
   } else {
-    // hvis noen logger inn som player via denne siden, stopp
     setError("Denne innloggingen er kun for trenerteam.");
   }
 }
+
+// Hvis treneren allerede er innlogget når appen åpnes,
+// gå rett til Oversikt i stedet for å vise innloggingssiden igjen.
+onAuthStateChanged(auth, async (user) => {
+  if (!user || manualLoginInProgress || isRegisterMode) return;
+
+  try {
+    const snap = await getDoc(doc(db, "users", user.uid));
+    if (!snap.exists()) return;
+
+    const role = snap.data()?.role;
+    if (role === "coach" || role === "assistantCoach") {
+      routeByRole(role);
+    }
+  } catch (err) {
+    console.warn("Kunne ikke auto-rute innlogget bruker", err);
+  }
+});
 
 // REGISTRER (alltid assistantCoach)
 registerBtn.onclick = async () => {
@@ -94,27 +110,26 @@ registerBtn.onclick = async () => {
   if (pass !== pass2) return setError("Passordene er ikke like.");
   if (pass.length < 6) return setError("Passord må være minst 6 tegn.");
 
-try {
-  const cred = await createUserWithEmailAndPassword(auth, email, pass);
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
 
-  await sendEmailVerification(cred.user);
+    await sendEmailVerification(cred.user);
 
-  await setDoc(doc(db, "users", cred.user.uid), {
-    email,
-    role: "assistantCoach",
-    approved: false,
-    createdAt: serverTimestamp()
-  });
+    await setDoc(doc(db, "users", cred.user.uid), {
+      email,
+      role: "assistantCoach",
+      approved: false,
+      createdAt: serverTimestamp()
+    });
 
-  await signOut(auth);
-  passwordInput.value = "";
-  setAuthMode("login");
-  setInfo("Registrert! Sjekk e-post og trykk på verifiseringslinken før du logger inn.");
-
-} catch (err) {
-  console.log(err);
-  setError(err.message);
-}
+    await signOut(auth);
+    passwordInput.value = "";
+    setAuthMode("login");
+    setInfo("Registrert! Sjekk e-post og trykk på verifiseringslinken før du logger inn.");
+  } catch (err) {
+    console.log(err);
+    setError(err.message);
+  }
 };
 
 // LOGIN
@@ -127,42 +142,41 @@ loginBtn.onclick = async () => {
 
   if (!email || !pass) return setError("Fyll inn e-post og passord.");
 
+  manualLoginInProgress = true;
+
   try {
     const cred = await signInWithEmailAndPassword(auth, email, pass);
-	
-	
 
-    // Hent rolle fra Firestore først
     const snap = await getDoc(doc(db, "users", cred.user.uid));
     if (!snap.exists()) {
       await signOut(auth);
+      manualLoginInProgress = false;
       return setError("Brukerprofil mangler i Firestore (users).");
     }
 
     const data = snap.data();
-	
-await setDoc(doc(collection(db, "loginLogs")), {
-  uid: cred.user.uid,
-  email: cred.user.email,
-  role: data.role,
-  timestamp: serverTimestamp()
-});
 
-    // Krev e-postverifisering for assistenter (og evt andre), men IKKE for coach
+    await setDoc(doc(collection(db, "loginLogs")), {
+      uid: cred.user.uid,
+      email: cred.user.email,
+      role: data.role,
+      timestamp: serverTimestamp()
+    });
+
     if (data.role !== "coach" && !cred.user.emailVerified) {
+      manualLoginInProgress = false;
       setError("E-posten er ikke verifisert. Sjekk innboksen og trykk på verifiseringslinken.");
       resendVerifyBtn.hidden = false;
-      return; // ikke redirect
+      return;
     }
 
     routeByRole(data.role);
-
   } catch (err) {
+    manualLoginInProgress = false;
     setError("Feil e-post eller passord.");
   }
 };
 
-// Send verifiseringsmail på nytt (krever at brukeren er logget inn i auth)
 resendVerifyBtn.onclick = async () => {
   setError("");
   try {
