@@ -3,65 +3,98 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Coach | Oversikt</title>
-  <link rel="stylesheet" href="oversikt.css?v=20260829-5" />
-  <link rel="stylesheet" href="oversikt-nav.css?v=20260829-1" />
+  <title>Samnanger G14 | Coach</title>
+  <link rel="stylesheet" href="oversikt.css?v=20260830-6" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#07111f" />
+  <meta name="theme-color" content="#08111f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Coach" />
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div>
-        <p class="kicker">SAMNANGER G14</p>
-        <h1>Coach</h1>
-        <span id="userLine" class="userLine"></span>
+  <main class="appShell">
+    <header class="appHeader">
+      <div class="brandBlock">
+        <div class="brandMark">S</div>
+        <div>
+          <p class="eyebrow">SAMNANGER IL</p>
+          <h1>G14</h1>
+          <span id="userLine" class="userLine"></span>
+        </div>
       </div>
-      <div class="topActions">
-        <button id="coachOnlyBtn" class="iconBtn" type="button" hidden aria-label="Dashboard">⌂</button>
-        <button id="logoutBtn" class="iconBtn" type="button" aria-label="Logg ut">↗</button>
+      <div class="headerActions">
+        <button id="coachOnlyBtn" class="roundBtn" type="button" hidden aria-label="Dashboard">⌂</button>
+        <button id="logoutBtn" class="roundBtn" type="button" aria-label="Logg ut">↗</button>
       </div>
     </header>
 
-    <section class="nextCard">
-      <div class="nextHead">
-        <span class="label">NESTE KAMP</span>
+    <section class="heroCard" aria-labelledby="nextOpponent">
+      <div class="heroTopline">
+        <span class="sectionLabel">NESTE KAMP</span>
         <span id="nextCountdown" class="countdown"></span>
       </div>
-      <h2 id="nextOpponent">Laster kamp…</h2>
-      <p id="nextMeta" class="matchMeta">Henter kampinformasjon</p>
-      <p id="nextVenue" class="venue"></p>
-      <div class="primaryActions">
-        <button id="lineupBtn" class="btn secondary" type="button">Lagoppstilling</button>
-        <button id="startMatchBtn" class="btn primary" type="button">Start kamp</button>
+      <div class="heroContent">
+        <h2 id="nextOpponent">Laster kamp…</h2>
+        <p id="nextMeta" class="heroMeta">Henter kampinformasjon</p>
+        <p id="nextVenue" class="heroVenue"></p>
+      </div>
+      <div class="heroActions">
+        <button id="lineupBtn" class="actionBtn actionSecondary" type="button">
+          <span class="actionIcon">⌗</span>
+          <span><strong>Lagoppstilling</strong><small>Sett laget på banen</small></span>
+        </button>
+        <button id="startMatchBtn" class="actionBtn actionPrimary" type="button">
+          <span class="actionIcon">▶</span>
+          <span><strong>Start kamp</strong><small>Åpne kampregistrering</small></span>
+        </button>
       </div>
     </section>
 
-    <section class="sectionBlock">
-      <div class="sectionHeader">
-        <div><span class="label">PLAN</span><h2>Kommende kamper</h2></div>
-        <button id="allMatchesBtn" class="textBtn" type="button">Alle kamper ›</button>
+    <nav class="mainNav" aria-label="Hovedmeny">
+      <button id="allMatchesBtn" class="navCard" type="button">
+        <span class="navIcon">▤</span>
+        <span><strong>Kamper</strong><small>Kommende</small></span>
+        <b>›</b>
+      </button>
+      <button id="allPlayedBtn" class="navCard" type="button">
+        <span class="navIcon">✓</span>
+        <span><strong>Spilte</strong><small>Resultater og hendelser</small></span>
+        <b>›</b>
+      </button>
+      <button id="statsBtn" class="navCard" type="button">
+        <span class="navIcon">▥</span>
+        <span><strong>Statistikk</strong><small>Mål og spilletid</small></span>
+        <b>›</b>
+      </button>
+      <a class="navCard" href="https://www.fotball.no/fotballdata/lag/hjem/?fiksId=170874&underside=tabeller" target="_blank" rel="noopener noreferrer">
+        <span class="navIcon">#</span>
+        <span><strong>Tabell</strong><small>MinFotball</small></span>
+        <b>↗</b>
+      </a>
+    </nav>
+
+    <section class="contentSection">
+      <div class="sectionHeading">
+        <div>
+          <span class="sectionLabel">FREMOVER</span>
+          <h2>Kommende kamper</h2>
+        </div>
       </div>
-      <div id="upcomingList" class="matchList"><div class="skeletonRow"></div><div class="skeletonRow"></div></div>
+      <div id="upcomingList" class="matchList">
+        <div class="skeletonRow"></div>
+        <div class="skeletonRow"></div>
+      </div>
     </section>
 
-    <section class="sectionBlock">
-      <div class="sectionHeader">
-        <div><span class="label">SIST SPILT</span><h2>Siste kamp</h2></div>
-        <button id="allPlayedBtn" class="textBtn" type="button">Spilte kamper ›</button>
+    <section class="contentSection lastSection">
+      <div class="sectionHeading">
+        <div>
+          <span class="sectionLabel">SIST SPILT</span>
+          <h2>Siste resultat</h2>
+        </div>
       </div>
       <div id="lastMatch"><div class="skeletonCard"></div></div>
-    </section>
-
-    <section class="quickLinks">
-      <a class="quickCard" href="https://www.fotball.no/fotballdata/lag/hjem/?fiksId=170874&underside=tabeller" target="_blank" rel="noopener noreferrer">
-        <span>▦</span><div><strong>Tabell</strong><small>Samnanger G14 i MinFotball</small></div><b>›</b>
-      </a>
-      <button id="statsBtn" class="quickCard" type="button"><span>▥</span><div><strong>Statistikk</strong><small>Kamper, mål og spilletid</small></div><b>›</b></button>
     </section>
 
     <p id="errorMsg" class="error"></p>
