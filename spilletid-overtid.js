@@ -1,3 +1,5 @@
+import "./retired-players.js?v=20260829-1";
+
 import {
   getApps,
   getApp
