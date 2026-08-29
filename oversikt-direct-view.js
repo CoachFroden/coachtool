@@ -3,14 +3,15 @@ const requestedView = params.get("view");
 
 if (["stats", "upcoming", "played"].includes(requestedView)) {
   const tryOpenRequestedView = () => {
+    const userLine = document.getElementById("userLine");
     const matchTab = document.getElementById("tabMatch");
-    const matchPanel = document.getElementById("matchPanel");
     const matchSelect = document.getElementById("matchSelect");
 
-    if (!matchTab || !matchPanel || !matchSelect) return false;
+    // oversikt.js avslutter auth-initialisering med å fylle userLine og vise
+    // spillervisningen. Vent til det er skjedd, så vår direktevisning ikke blir
+    // overskrevet etterpå.
+    if (!userLine?.textContent?.trim() || !matchTab || !matchSelect) return false;
 
-    // Vent til oversikt.js/auth har initialisert siden. Når spillervisningen er
-    // aktiv, kan vi trygt bytte til kampfanen og sende riktig valg direkte.
     matchTab.click();
     matchSelect.value = requestedView;
     matchSelect.dispatchEvent(new Event("change", { bubbles: true }));
@@ -20,7 +21,7 @@ if (["stats", "upcoming", "played"].includes(requestedView)) {
   let attempts = 0;
   const timer = window.setInterval(() => {
     attempts += 1;
-    if (tryOpenRequestedView() || attempts >= 40) {
+    if (tryOpenRequestedView() || attempts >= 80) {
       window.clearInterval(timer);
     }
   }, 100);
