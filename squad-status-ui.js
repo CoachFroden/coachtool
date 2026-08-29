@@ -7,32 +7,167 @@ function ensureSquadStatusStyles() {
   const style = document.createElement("style");
   style.id = "squad-status-ui-style";
   style.textContent = `
-    #squadModal .modal-content { max-width: 430px; }
-    #squadModal #squadList { display:flex; flex-direction:column; gap:7px; padding:0; margin:14px 0 0; list-style:none; }
-    #squadModal .squad-group-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:13px; padding:12px 13px; border-radius:15px; border:1px solid rgba(148,163,184,.16); }
+    #squadModal .modal-content {
+      max-width: 430px;
+    }
+
+    #squadModal #squadList {
+      display:flex;
+      flex-direction:column;
+      gap:0;
+      padding:0;
+      margin:12px 0 0;
+      list-style:none;
+    }
+
+    #squadModal .squad-group-heading {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:16px;
+      padding:8px 4px 7px;
+      border:0;
+      border-bottom:1px solid rgba(148,163,184,.14);
+      background:transparent;
+    }
+
     #squadModal .squad-group-heading:first-child { margin-top:0; }
-    #squadModal .squad-group-heading strong,#squadModal .squad-group-heading small { display:block; }
-    #squadModal .squad-group-heading strong { font-size:13px; letter-spacing:.045em; }
-    #squadModal .squad-group-heading small { margin-top:3px; color:#8da0b7; font-size:9px; }
-    #squadModal .squad-group-heading > span { min-width:34px; height:34px; display:grid; place-items:center; border-radius:11px; font-weight:850; font-size:13px; }
-    #squadModal .squad-group-heading.starter { background:rgba(22,163,74,.12); border-color:rgba(74,222,128,.30); color:#4ade80; }
-    #squadModal .squad-group-heading.starter > span { background:rgba(22,163,74,.16); }
-    #squadModal .squad-group-heading.bench { background:rgba(245,158,11,.10); border-color:rgba(245,158,11,.28); color:#fbbf24; }
-    #squadModal .squad-group-heading.bench > span { background:rgba(245,158,11,.13); }
-    #squadModal .squad-group-heading.absent { background:rgba(100,116,139,.09); border-color:rgba(148,163,184,.18); color:#94a3b8; }
-    #squadModal .squad-group-heading.absent > span { background:rgba(100,116,139,.13); }
-    #squadModal .squad-row { min-height:56px; display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; padding:10px 11px !important; border-radius:13px !important; border:1px solid rgba(148,163,184,.12); background:#111b2c !important; color:#f8fafc; }
-    #squadModal .squad-row.squad-starter { border-color:rgba(74,222,128,.20); background:linear-gradient(90deg,rgba(22,163,74,.15),rgba(17,27,44,.94)) !important; }
-    #squadModal .squad-row.squad-bench { border-color:rgba(245,158,11,.17); background:linear-gradient(90deg,rgba(245,158,11,.09),rgba(17,27,44,.94)) !important; }
-    #squadModal .squad-row.squad-absent { opacity:.64 !important; background:rgba(15,23,42,.76) !important; }
-    #squadModal .squad-row .player-name { min-width:0; font-size:15px; font-weight:700; text-decoration:none !important; }
-    #squadModal .squad-original-control { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
-    #squadModal .squad-status-select { width:122px; min-height:38px; padding:0 31px 0 10px; border-radius:11px; border:1px solid rgba(148,163,184,.18); background:#0b1423; color:#e5edf7; font:inherit; font-size:11px; font-weight:750; }
-    #squadModal .squad-starter .squad-status-select { border-color:rgba(74,222,128,.28); color:#4ade80; background:rgba(22,163,74,.10); }
-    #squadModal .squad-bench .squad-status-select { border-color:rgba(245,158,11,.26); color:#fbbf24; background:rgba(245,158,11,.08); }
-    #squadModal .squad-absent .squad-status-select { color:#94a3b8; }
-    #squadModal .starter-counter { display:inline-flex; align-items:center; min-height:34px; padding:0 11px; border:1px solid rgba(74,222,128,.22); border-radius:999px; background:rgba(22,163,74,.08); color:#86efac; font-weight:800; font-size:12px; }
-    @media (max-width:390px){ #squadModal .squad-row{grid-template-columns:minmax(0,1fr) 112px} #squadModal .squad-status-select{width:112px;font-size:10px} }
+    #squadModal .squad-group-heading strong,
+    #squadModal .squad-group-heading small { display:block; }
+    #squadModal .squad-group-heading strong {
+      font-size:12px;
+      font-weight:850;
+      letter-spacing:.07em;
+    }
+    #squadModal .squad-group-heading small {
+      margin-top:2px;
+      color:#7f91a8;
+      font-size:8px;
+    }
+    #squadModal .squad-group-heading > span {
+      min-width:28px;
+      height:28px;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      font-weight:850;
+      font-size:11px;
+    }
+
+    #squadModal .squad-group-heading.starter { color:#4ade80; }
+    #squadModal .squad-group-heading.starter > span { background:rgba(22,163,74,.14); }
+    #squadModal .squad-group-heading.bench { color:#fbbf24; }
+    #squadModal .squad-group-heading.bench > span { background:rgba(245,158,11,.12); }
+    #squadModal .squad-group-heading.absent { color:#94a3b8; }
+    #squadModal .squad-group-heading.absent > span { background:rgba(100,116,139,.12); }
+
+    #squadModal .squad-row {
+      min-height:46px;
+      display:grid !important;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:10px;
+      padding:7px 4px !important;
+      border:0 !important;
+      border-bottom:1px solid rgba(148,163,184,.09) !important;
+      border-radius:0 !important;
+      background:transparent !important;
+      color:#f8fafc;
+      box-shadow:none !important;
+    }
+
+    #squadModal .squad-row:last-of-type {
+      border-bottom-color:transparent !important;
+    }
+
+    #squadModal .squad-row.squad-starter {
+      background:linear-gradient(90deg,rgba(22,163,74,.055),transparent 70%) !important;
+    }
+    #squadModal .squad-row.squad-bench {
+      background:linear-gradient(90deg,rgba(245,158,11,.045),transparent 70%) !important;
+    }
+    #squadModal .squad-row.squad-absent {
+      opacity:.56 !important;
+      background:transparent !important;
+    }
+
+    #squadModal .squad-row .player-name {
+      min-width:0;
+      justify-self:start !important;
+      text-align:left !important;
+      font-size:14px;
+      font-weight:720;
+      color:#f1f5f9;
+      text-decoration:none !important;
+    }
+    #squadModal .squad-starter .player-name { color:#7ee7a1; }
+    #squadModal .squad-bench .player-name { color:#fde68a; }
+    #squadModal .squad-absent .player-name { color:#a1aab8; }
+
+    #squadModal .squad-original-control {
+      position:absolute !important;
+      width:1px !important;
+      height:1px !important;
+      padding:0 !important;
+      margin:-1px !important;
+      overflow:hidden !important;
+      clip:rect(0,0,0,0) !important;
+      white-space:nowrap !important;
+      border:0 !important;
+    }
+
+    #squadModal .squad-status-select {
+      justify-self:end;
+      width:104px;
+      min-height:32px;
+      padding:0 25px 0 9px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:#0d1726;
+      color:#dce6f2;
+      font:inherit;
+      font-size:10px;
+      font-weight:780;
+      outline:none;
+    }
+
+    #squadModal .squad-starter .squad-status-select {
+      border-color:rgba(74,222,128,.30);
+      color:#6ee7a0;
+      background:rgba(22,163,74,.08);
+    }
+    #squadModal .squad-bench .squad-status-select {
+      border-color:rgba(245,158,11,.28);
+      color:#fbbf24;
+      background:rgba(245,158,11,.07);
+    }
+    #squadModal .squad-absent .squad-status-select {
+      color:#94a3b8;
+      background:rgba(100,116,139,.07);
+    }
+
+    #squadModal .starter-counter {
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:0 10px;
+      border:1px solid rgba(74,222,128,.18);
+      border-radius:999px;
+      background:rgba(22,163,74,.06);
+      color:#86efac;
+      font-weight:800;
+      font-size:11px;
+    }
+
+    #squadModal #loanPlayersBtn {
+      margin-top:8px;
+    }
+
+    @media (max-width:390px){
+      #squadModal .squad-row{grid-template-columns:minmax(0,1fr) 100px}
+      #squadModal .squad-status-select{width:100px;font-size:9.5px}
+    }
   `;
   document.head.appendChild(style);
 }
@@ -85,7 +220,7 @@ if (modal && list) {
       select.innerHTML = `
         <option value="starter">Starter</option>
         <option value="bench">Innbytter</option>
-        <option value="absent">Ikke til stede</option>
+        <option value="absent">Ikke med</option>
       `;
       select.addEventListener("click", (event) => event.stopPropagation());
       select.addEventListener("change", (event) => {
@@ -127,9 +262,9 @@ if (modal && list) {
 
       const fragment = document.createDocumentFragment();
       const sections = [
-        ["starter", "STARTERE", "Spiller fra start", groups.starter],
-        ["bench", "INNBYTTERE", "Tilgjengelig fra benken", groups.bench],
-        ["absent", "IKKE TIL STEDE", "Ikke med i kamptroppen", groups.absent]
+        ["starter", "STARTERE", "Fra start", groups.starter],
+        ["bench", "INNBYTTERE", "På benken", groups.bench],
+        ["absent", "IKKE TIL STEDE", "Ikke med i troppen", groups.absent]
       ];
 
       sections.forEach(([kind, title, subtitle, rowsInGroup]) => {
