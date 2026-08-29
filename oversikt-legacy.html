@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Coach | Verktøy</title>
+  <link rel="stylesheet" href="oversikt.css?v=20260829-2" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#06101f" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div><p class="eyebrow">COACH · VERKTØY</p><h1 class="mainTitle">Tidligere oversikt</h1><div class="meta"><span id="userLine"></span></div></div>
+      <div class="topActions"><button id="coachOnlyBtn" class="iconAction coach-only-btn">⌂</button><button id="logoutBtn" class="iconAction">↗</button></div>
+    </header>
+    <section class="grid">
+      <div class="card controlCard">
+        <div class="segmented">
+          <button id="tabPlayers" class="segBtn isActive" type="button"><span><strong>Spillere</strong><small>Refleksjon & utvikling</small></span></button>
+          <button id="tabMatch" class="segBtn" type="button"><span><strong>Kamper</strong><small>Resultat & statistikk</small></span></button>
+        </div>
+        <div id="playersPanel" class="panel"><select id="playersSelect" class="playerSelect"><option value="">Laster spillere…</option></select></div>
+        <div id="matchPanel" class="panel isHidden"><select id="matchSelect" class="playerSelect"><option value="">Velg…</option><option value="upcoming">Kommende kamper</option><option value="played">Spilte kamper</option><option value="stats">Statistikk</option></select></div>
+      </div>
+      <div class="card isHidden detailCard" id="rightPanel"><h2 id="rightTitle">Refleksjoner</h2><p id="selectedPlayer" class="hint">Velg en spiller.</p><div id="entries" class="list"></div></div>
+    </section>
+    <p id="errorMsg" class="error"></p>
+  </main>
+  <script type="module" src="oversikt.js?v=20260829-2"></script>
+</body>
+</html>
