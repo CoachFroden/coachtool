@@ -10,8 +10,10 @@ const backBtn = document.getElementById("backBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const errorMsg = document.getElementById("errorMsg");
 
+const params = new URLSearchParams(window.location.search);
 let matches = [];
-let currentView = new URLSearchParams(window.location.search).get("view") === "played" ? "played" : "upcoming";
+let currentView = params.get("view") === "played" ? "played" : "upcoming";
+const requestedMatchId = params.get("matchId");
 
 function esc(value) {
   return String(value ?? "")
@@ -50,6 +52,41 @@ function typeLabel(type) {
   return "Kamp";
 }
 
+function eventDisplayText(event) {
+  if (event?.text) return String(event.text);
+  if (event?.rawText) return String(event.rawText);
+  const minute = event?.minute ? `${event.minute} – ` : "";
+  if (event?.type === "substitution") {
+    return `🔄 ${minute}${event.outPlayerName || "Ukjent"} ut, ${event.inPlayerName || "Ukjent"} inn`;
+  }
+  if (event?.type === "goal") {
+    return `⚽ ${minute}${event.playerName || "Ukjent spiller"}`;
+  }
+  if (event?.type === "card") {
+    const icon = event.cardType === "red" ? "🟥" : "🟨";
+    return `${icon} ${minute}${event.playerName || "Ukjent spiller"}`;
+  }
+  return "Hendelse";
+}
+
+function eventMinute(event) {
+  if (event?.minute) return `${event.minute}'`;
+  const ms = Number(event?.timeMs);
+  if (Number.isFinite(ms) && ms >= 0) return `${Math.max(1, Math.ceil(ms / 60000))}'`;
+  return "";
+}
+
+function renderEvents(match) {
+  const events = Array.isArray(match?.events) ? [...match.events] : [];
+  events.sort((a, b) => (Number(a?.timeMs) || 0) - (Number(b?.timeMs) || 0));
+  if (!events.length) return `<div class="noEvents">Ingen registrerte hendelser i denne kampen.</div>`;
+  return events.map(event => `
+    <div class="eventRow">
+      <span class="eventMinute">${esc(eventMinute(event))}</span>
+      <span class="eventText">${esc(eventDisplayText(event))}</span>
+    </div>`).join("");
+}
+
 function renderUpcoming() {
   const rows = matches
     .filter(m => String(m.status || "").toUpperCase() !== "ENDED")
@@ -84,11 +121,9 @@ function renderUpcoming() {
   content.querySelectorAll("button[data-action]").forEach(button => {
     button.addEventListener("click", () => {
       const id = encodeURIComponent(button.dataset.id);
-      if (button.dataset.action === "lineup") {
-        window.location.href = `kamper.html?matchId=${id}&openLineup=true`;
-      } else {
-        window.location.href = `kamp.html?matchId=${id}`;
-      }
+      window.location.href = button.dataset.action === "lineup"
+        ? `kamper.html?matchId=${id}&openLineup=true`
+        : `kamp.html?matchId=${id}`;
     });
   });
 }
@@ -115,7 +150,9 @@ function renderPlayed() {
     if (Number.isFinite(m?.score?.our) && Number.isFinite(m?.score?.their)) {
       scoreClass = m.score.our > m.score.their ? "win" : m.score.our < m.score.their ? "loss" : "draw";
     }
-    return `<article class="matchCard">
+    const count = Array.isArray(m.events) ? m.events.length : 0;
+    const open = requestedMatchId === m.id;
+    return `<article class="matchCard" id="match-${esc(m.id)}">
       <div class="matchTop">
         <div class="matchTitle">
           <span class="matchType">${esc(typeLabel(meta.type))}</span>
@@ -124,8 +161,28 @@ function renderPlayed() {
         </div>
         <div class="score ${scoreClass}">${esc(our)}–${esc(their)}</div>
       </div>
+      <button class="eventsToggle" type="button" data-events="${esc(m.id)}" aria-expanded="${open ? "true" : "false"}">
+        <span>Hendelser</span><span>${count} ${open ? "⌃" : "⌄"}</span>
+      </button>
+      <div class="eventsPanel" id="events-${esc(m.id)}" ${open ? "" : "hidden"}>${renderEvents(m)}</div>
     </article>`;
   }).join("");
+
+  content.querySelectorAll(".eventsToggle").forEach(button => {
+    button.addEventListener("click", () => {
+      const panel = document.getElementById(`events-${button.dataset.events}`);
+      if (!panel) return;
+      const willOpen = panel.hidden;
+      panel.hidden = !willOpen;
+      button.setAttribute("aria-expanded", String(willOpen));
+      const count = panel.querySelectorAll(".eventRow").length;
+      button.lastElementChild.textContent = `${count} ${willOpen ? "⌃" : "⌄"}`;
+    });
+  });
+
+  if (requestedMatchId) {
+    document.getElementById(`match-${requestedMatchId}`)?.scrollIntoView({ block: "start" });
+  }
 }
 
 function setView(view) {
