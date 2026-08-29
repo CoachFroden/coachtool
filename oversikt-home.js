@@ -61,8 +61,7 @@ function typeLabel(type) {
 function countdown(match) {
   const when = dateValue(match);
   if (!Number.isFinite(when)) return "";
-  const now = Date.now();
-  const diff = when - now;
+  const diff = when - Date.now();
   if (diff <= 0 && diff > -6 * 60 * 60 * 1000) return "Kampdag";
   const days = Math.ceil(diff / 86400000);
   if (days <= 0) return "I dag";
@@ -84,7 +83,7 @@ function renderNext(match) {
     els.nextCountdown.textContent = "";
     els.lineupBtn.disabled = true;
     els.startMatchBtn.textContent = "Se kommende kamper";
-    els.startMatchBtn.onclick = () => window.location.href = "kamper.html";
+    els.startMatchBtn.onclick = () => window.location.href = "kampoversikt.html?view=upcoming";
     return;
   }
 
@@ -105,10 +104,11 @@ function renderUpcoming(matches) {
     els.upcomingList.innerHTML = `<div class="emptyState">Ingen kommende kamper.</div>`;
     return;
   }
-  els.upcomingList.innerHTML = rows.map((m, index) => {
+  els.upcomingList.innerHTML = rows.map(m => {
     const meta = m.meta || {};
+    const formatted = formatDate(meta.date).split(" ");
     return `<button class="matchRow" data-id="${esc(m.id)}" type="button">
-      <span class="dateBadge"><strong>${esc(formatDate(meta.date).split(" ").slice(1,2).join(""))}</strong><small>${esc(formatDate(meta.date).split(" ").slice(2).join(" "))}</small></span>
+      <span class="dateBadge"><strong>${esc(formatted.slice(1,2).join(""))}</strong><small>${esc(formatted.slice(2).join(" "))}</small></span>
       <span class="matchRowMain"><strong>${esc(meta.opponent || "Ukjent motstander")}</strong><small>${esc(venueLabel(meta))}${meta.time ? ` · ${esc(meta.time)}` : ""}</small></span>
       <span class="chevron">›</span>
     </button>`;
@@ -130,10 +130,13 @@ function renderLast(match) {
   const our = Number.isFinite(match?.score?.our) ? match.score.our : "–";
   const their = Number.isFinite(match?.score?.their) ? match.score.their : "–";
   const resultClass = Number(our) > Number(their) ? "win" : Number(our) < Number(their) ? "loss" : "draw";
-  els.lastMatch.innerHTML = `<div class="lastMatchCard">
+  els.lastMatch.innerHTML = `<button class="lastMatchCard" type="button" id="lastMatchOpen">
     <div><span class="sectionEyebrow">${esc(formatDate(meta.date))}</span><h3>${esc(meta.opponent || "Ukjent motstander")}</h3><p>${esc(venueLabel(meta))}</p></div>
     <div class="score ${resultClass}">${esc(our)}<span>–</span>${esc(their)}</div>
-  </div>`;
+  </button>`;
+  document.getElementById("lastMatchOpen")?.addEventListener("click", () => {
+    window.location.href = `kampoversikt.html?view=played&matchId=${encodeURIComponent(match.id)}`;
+  });
 }
 
 async function initForUser(user) {
@@ -152,12 +155,8 @@ async function initForUser(user) {
   }
 
   const matches = await loadMatches();
-  const upcoming = matches
-    .filter(m => m.status !== "ENDED")
-    .sort((a,b) => dateValue(a) - dateValue(b));
-  const played = matches
-    .filter(m => m.status === "ENDED")
-    .sort((a,b) => dateValue(b) - dateValue(a));
+  const upcoming = matches.filter(m => String(m.status || "").toUpperCase() !== "ENDED").sort((a,b) => dateValue(a) - dateValue(b));
+  const played = matches.filter(m => String(m.status || "").toUpperCase() === "ENDED").sort((a,b) => dateValue(b) - dateValue(a));
 
   renderNext(upcoming[0]);
   renderUpcoming(upcoming.slice(1));
@@ -168,8 +167,8 @@ els.logoutBtn.onclick = async () => {
   await signOut(auth);
   window.location.href = "index.html";
 };
-els.allMatchesBtn.onclick = () => window.location.href = "kamper.html";
-els.statsBtn.onclick = () => window.location.href = "oversikt-legacy.html?view=stats";
+els.allMatchesBtn.onclick = () => window.location.href = "kampoversikt.html?view=upcoming";
+els.statsBtn.onclick = () => window.location.href = "statistikk.html";
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
