@@ -1,5 +1,7 @@
 console.log("🔥 firebase-refleksjon.js LASTET");
 
+import "./retired-players.js?v=20260829-1";
+
 // firebase-refleksjon.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
