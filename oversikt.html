@@ -4,98 +4,64 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Coach | Oversikt</title>
-  <link rel="stylesheet" href="oversikt.css?v=20260829-2" />
+  <link rel="stylesheet" href="oversikt.css?v=20260829-3" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#06101f" />
+  <meta name="theme-color" content="#07111f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Coach" />
-  <meta name="mobile-web-app-capable" content="yes" />
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
-  <div class="ambient ambientOne"></div>
-  <div class="ambient ambientTwo"></div>
-
-  <main class="wrap">
-    <header class="top">
-      <div class="brandBlock">
-        <div class="brandMark" aria-hidden="true"><span></span></div>
-        <div>
-          <p class="eyebrow">SAMNANGER · COACH</p>
-          <h1 class="mainTitle">Kommandosentral</h1>
-          <div class="meta"><span id="userLine"></span></div>
-        </div>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="kicker">SAMNANGER G14</p>
+        <h1>Coach</h1>
+        <span id="userLine" class="userLine"></span>
       </div>
       <div class="topActions">
-        <button id="coachOnlyBtn" class="iconAction coach-only-btn" title="Dashboard" aria-label="Dashboard">⌂</button>
-        <button id="logoutBtn" class="iconAction logoutBtnSmall" title="Logg ut" aria-label="Logg ut">↗</button>
+        <button id="coachOnlyBtn" class="iconBtn" type="button" hidden aria-label="Dashboard">⌂</button>
+        <button id="logoutBtn" class="iconBtn" type="button" aria-label="Logg ut">↗</button>
       </div>
     </header>
 
-    <section class="heroCard" aria-label="Neste kamp">
-      <div class="heroGlow"></div>
-      <div class="heroCopy">
-        <span class="livePill"><i></i> NESTE KAMP</span>
-        <h2>Laster neste<br><span>kommende kamp…</span></h2>
-        <p>Henter kampinformasjon.</p>
+    <section class="nextCard">
+      <div class="nextHead">
+        <span class="label">NESTE KAMP</span>
+        <span id="nextCountdown" class="countdown"></span>
       </div>
-      <button id="openMatchAppBtn" class="heroBtn" type="button">
-        <span class="heroBtnIcon">⚽</span>
-        <span><small>Neste kamp</small><strong>Laster…</strong></span>
-        <b>→</b>
-      </button>
+      <h2 id="nextOpponent">Laster kamp…</h2>
+      <p id="nextMeta" class="matchMeta">Henter kampinformasjon</p>
+      <p id="nextVenue" class="venue"></p>
+      <div class="primaryActions">
+        <button id="lineupBtn" class="btn secondary" type="button">Lagoppstilling</button>
+        <button id="startMatchBtn" class="btn primary" type="button">Start kamp</button>
+      </div>
     </section>
 
-    <section class="grid">
-      <div class="card controlCard">
-        <div class="cardHeader">
-          <div>
-            <span class="sectionLabel">ARBEIDSOMRÅDE</span>
-            <h2>Hva vil du jobbe med?</h2>
-          </div>
-        </div>
-
-        <div class="segmented" role="tablist" aria-label="Velg visning">
-          <button id="tabPlayers" class="segBtn isActive" type="button" role="tab" aria-selected="true">
-            <span class="segIcon">◎</span><span><strong>Spillere</strong><small>Refleksjon & utvikling</small></span>
-          </button>
-          <button id="tabMatch" class="segBtn" type="button" role="tab" aria-selected="false">
-            <span class="segIcon">▱</span><span><strong>Kamper</strong><small>Plan, resultat & stats</small></span>
-          </button>
-        </div>
-
-        <div id="playersPanel" class="panel">
-          <label class="fieldLabel" for="playersSelect">VELG SPILLER</label>
-          <select id="playersSelect" class="playerSelect"><option value="">Laster spillere…</option></select>
-        </div>
-
-        <div id="matchPanel" class="panel isHidden">
-          <label class="fieldLabel" for="matchSelect">KAMPVERKTØY</label>
-          <select id="matchSelect" class="playerSelect">
-            <option value="">Velg…</option>
-            <option value="upcoming">Kommende kamper</option>
-            <option value="played">Spilte kamper</option>
-            <option value="stats">Statistikk</option>
-          </select>
-        </div>
+    <section class="sectionBlock">
+      <div class="sectionHeader">
+        <div><span class="label">PLAN</span><h2>Kommende kamper</h2></div>
+        <button id="allMatchesBtn" class="textBtn" type="button">Alle kamper ›</button>
       </div>
+      <div id="upcomingList" class="matchList"><div class="skeletonRow"></div><div class="skeletonRow"></div></div>
+    </section>
 
-      <div class="card isHidden detailCard" id="rightPanel">
-        <div class="detailHeader">
-          <span class="sectionLabel">DETALJER</span>
-          <h2 id="rightTitle">Refleksjoner</h2>
-          <p id="selectedPlayer" class="hint">Velg en spiller.</p>
-        </div>
-        <div id="entries" class="list"></div>
+    <section class="sectionBlock">
+      <div class="sectionHeader">
+        <div><span class="label">SIST SPILT</span><h2>Siste kamp</h2></div>
       </div>
+      <div id="lastMatch"><div class="skeletonCard"></div></div>
+    </section>
+
+    <section class="quickLinks">
+      <button id="statsBtn" class="quickCard" type="button"><span>▥</span><div><strong>Statistikk</strong><small>Kamper og spillere</small></div><b>›</b></button>
+      <button class="quickCard" type="button" onclick="window.location.href='kamper.html'"><span>⚽</span><div><strong>Kamper</strong><small>Planlegg og rediger</small></div><b>›</b></button>
     </section>
 
     <p id="errorMsg" class="error"></p>
-    <footer class="appFooter"><span>COACH TOOL</span><i></i><span>2026</span></footer>
   </main>
-
-  <script type="module" src="oversikt.js?v=20260829-2"></script>
-  <script type="module" src="next-match-hero.js?v=20260829-1"></script>
+  <script type="module" src="oversikt-home.js?v=20260829-1"></script>
 </body>
 </html>
