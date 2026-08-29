@@ -1,3 +1,5 @@
+import "./squad-status-ui.js?v=20260830-1";
+
 // Spillere som ikke lenger skal vises i aktive valg i appen.
 // Historiske kampdata og statistikk beholdes urørt.
 const RETIRED_PLAYER_NAMES = new Set(["torvald"]);
