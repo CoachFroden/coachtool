@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kamper</title>
-  <link rel="stylesheet" href="kamper.css" />
+  <link rel="stylesheet" href="kamper.css?v=20260830-2" />
 </head>
 
 <body>
@@ -140,6 +140,7 @@
       window.location.href = "index.html";
     } else {
       await import("./kamper.js?v=20260829-1");
+      await import("./lineup-ui.js?v=20260830-1");
     }
   </script>
 
