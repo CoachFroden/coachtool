@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Coach | Kamper</title>
+  <link rel="stylesheet" href="kampoversikt.css?v=20260829-1" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Coach" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <button id="backBtn" class="iconBtn" type="button" aria-label="Tilbake">‹</button>
+      <div class="titleBlock">
+        <p class="kicker">SAMNANGER G14</p>
+        <h1 id="pageTitle">Kamper</h1>
+      </div>
+      <button id="logoutBtn" class="iconBtn" type="button" aria-label="Logg ut">↗</button>
+    </header>
+
+    <nav class="switcher" aria-label="Kampvisning">
+      <button id="upcomingTab" type="button">Kommende</button>
+      <button id="playedTab" type="button">Spilte</button>
+    </nav>
+
+    <section id="content" class="list" aria-live="polite">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </section>
+
+    <p id="errorMsg" class="error"></p>
+  </main>
+
+  <script type="module" src="kampoversikt.js?v=20260829-1"></script>
+</body>
+</html>
