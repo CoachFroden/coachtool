@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Coach | Statistikk</title>
+  <link rel="stylesheet" href="statistikk.css?v=20260830-1" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Coach" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <button id="backBtn" class="iconBtn" type="button" aria-label="Tilbake">‹</button>
+      <div class="titleBlock"><p class="kicker">SAMNANGER G14</p><h1>Statistikk</h1></div>
+      <button id="logoutBtn" class="iconBtn" type="button" aria-label="Logg ut">↗</button>
+    </header>
+
+    <section id="summary" class="summaryGrid" aria-live="polite">
+      <div class="summaryCard"><span>Kamper</span><strong>–</strong></div>
+      <div class="summaryCard"><span>Seier</span><strong>–</strong></div>
+      <div class="summaryCard"><span>Uavgjort</span><strong>–</strong></div>
+      <div class="summaryCard"><span>Tap</span><strong>–</strong></div>
+    </section>
+
+    <section class="goalCard"><span>Målforskjell</span><strong id="goalSummary">–</strong></section>
+
+    <section class="statsSection">
+      <div class="sectionHead"><span>SPILLERE</span><h2>Sesongstatistikk</h2></div>
+      <div class="statsHeader"><span>Spiller</span><span>K</span><span>Min</span><span>Mål</span><span>G</span><span>R</span></div>
+      <div id="playerStats"><div class="skeleton"></div></div>
+    </section>
+
+    <p id="errorMsg" class="error"></p>
+  </main>
+  <script type="module" src="statistikk.js?v=20260830-1"></script>
+</body>
+</html>
