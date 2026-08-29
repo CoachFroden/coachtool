@@ -2,111 +2,78 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Coach Dashboard</title>
-
-  <link rel="stylesheet" href="coach.css" />
-  
-    <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#0f172a" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Coach" />
-<link rel="apple-touch-icon" href="icon-192.png" />
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Coach</title>
+  <link rel="stylesheet" href="coach.css?v=20260829-3" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#07111d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Coach" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
+  <main class="dashboardShell">
+    <header class="dashboardHeader">
+      <div>
+        <p class="eyebrow">SAMNANGER G14</p>
+        <h1>Coach</h1>
+        <p id="userLine" class="userLine">Laster…</p>
+      </div>
+      <button id="logoutBtn" class="logoutIcon" type="button" aria-label="Logg ut" title="Logg ut">↗</button>
+    </header>
 
-  <main class="coach-container">
-
-    <header class="coach-header">
-  <h1 id="coachHeader">Coach Dashboard</h1>
-  <p id="pushStatusText" class="push-status"></p>
-  <p class="coach-sub">Intern trenerplattform</p>
-</header>
-
-    <section class="coach-grid">
-
-      <div class="coach-card" onclick="go('refleksjon.html')">
-        <div class="coach-icon">📖</div>
-        <div class="coach-title">Refleksjoner</div>
-        <div class="coach-desc">Les spillernes ukerefleksjoner</div>
+    <section class="welcomeCard">
+      <div class="welcomeGlow"></div>
+      <div class="welcomeContent">
+        <span class="statusPill"><i></i> TRENER</span>
+        <h2>Alt kamprelatert<br><span>starter i Oversikt.</span></h2>
+        <p>Herfra ser du neste kamp, lagoppstilling, kampstart, kommende kamper og siste resultat.</p>
       </div>
 
-      <div class="coach-card" onclick="go('tilbakemeldinger.html')">
-        <div class="coach-icon">✍️</div>
-        <div class="coach-title">Tilbakemeldinger</div>
-        <div class="coach-desc">Skriv og følg opp svar</div>
-      </div>
-	  
-	  <div class="coach-card" onclick="go('resetspillerpassord.html')">
-  <div class="coach-icon">🔑</div>
-  <div class="coach-title">Reset passord</div>
-  <div class="coach-desc">Sett nytt passord for spiller</div>
-</div>
-
-      <div class="coach-card" onclick="go('analyse.html')">
-        <div class="coach-icon">🤖</div>
-        <div class="coach-title">Analyse</div>
-        <div class="coach-desc">AI-basert analyse per spiller</div>
-      </div>
-	  
-	  <div class="coach-card" onclick="go('coach-utviklingsplan.html')">
-  <div class="coach-icon">🎯</div>
-  <div class="coach-title">Utviklingsplan</div>
-  <div class="coach-desc">Opprett og rediger spillernes planer</div>
-</div>
-
-<div class="coach-card" onclick="go('oversikt.html')">
-  <div class="coach-icon">📊</div>
-  <div class="coach-title">Oversikt</div>
-  <div class="coach-desc">Spilte kamper, statistikk og detaljer</div>
-</div>
-
-<div class="coach-card" onclick="go('kamper.html')">
-  <div class="coach-icon">⚽</div>
-  <div class="coach-title">Kamper</div>
-  <div class="coach-desc">Registrer og se kamper</div>
-</div>
-
-<div class="coach-card" onclick="go('assistant-kamper.html')">
-  <div class="coach-icon">🗂</div>
-  <div class="coach-title">Assistent-kamper</div>
-  <div class="coach-desc">Godkjenn og administrer kamper</div>
-</div>
-
-<div class="coach-card" onclick="go('ukens-ovelser.html')">
-  <div class="coach-icon">⚽</div>
-  <div class="coach-title">Ukens øvelser</div>
-  <div class="coach-desc">Velg fokus og øvelser for spillerne</div>
-</div>
-
-<div class="coach-card" onclick="go('thegame.html')">
-  <div class="coach-icon">📈</div>
-  <div class="coach-title">Treningsdata</div>
-  <div class="coach-desc">Se øvelser per spiller</div>
-</div>
-
-<div class="coach-card" onclick="go('trenerlogg.html')">
-  <div class="coach-icon">📓</div>
-  <div class="coach-title">Trenerlogg</div>
-  <div class="coach-desc">Notater og refleksjoner fra trener</div>
-</div>
-
-<div class="coach-card" onclick="go('spillerlogg.html')">
-  <div class="coach-icon">👀</div>
-  <div class="coach-title">Spillerlogg</div>
-  <div class="coach-desc">Se hvem som logger inn</div>
-</div>
-
-
+      <button id="openOverviewBtn" class="primaryAction" type="button">
+        <span class="primaryIcon">⚽</span>
+        <span class="primaryText">
+          <small>Hovedinngang</small>
+          <strong>Åpne Oversikt</strong>
+        </span>
+        <span class="primaryArrow">→</span>
+      </button>
     </section>
 
-    <button id="logoutBtn" class="logout-btn">Logg ut</button>
+    <section class="quickInfo">
+      <div class="infoBlock">
+        <span class="infoLabel">ARBEIDSFLYT</span>
+        <strong>Oversikt → Lagoppstilling → Kamp</strong>
+        <p>Ingen ekstra menyer nødvendig.</p>
+      </div>
+    </section>
 
+    <section class="adminSection">
+      <button id="adminToggle" class="adminToggle" type="button" aria-expanded="false">
+        <span>
+          <small>BRUKES SJELDEN</small>
+          <strong>Administrasjon</strong>
+        </span>
+        <b>⌄</b>
+      </button>
+
+      <div id="adminPanel" class="adminPanel">
+        <a href="resetspillerpassord.html" class="adminItem">
+          <span>🔑</span>
+          <div><strong>Reset spillerpassord</strong><small>Sett nytt passord for spiller</small></div>
+        </a>
+        <a href="assistant-kamper.html" class="adminItem">
+          <span>🗂</span>
+          <div><strong>Assistent-kamper</strong><small>Godkjenn eller administrer ved behov</small></div>
+        </a>
+      </div>
+    </section>
+
+    <footer class="dashboardFooter">COACH TOOL · 2026</footer>
   </main>
 
-  <script type="module" src="coach.js"></script>
+  <script type="module" src="dashboard-home.js?v=20260829-1"></script>
 </body>
 </html>
