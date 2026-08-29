@@ -9,121 +9,170 @@ function ensureSquadStatusStyles() {
   style.textContent = `
     #squadModal .modal-content { max-width: 430px; }
     #squadModal #squadList {
-      padding:0;
-      margin:14px 0 0;
-      list-style:none;
-      display:block;
+      padding: 0;
+      margin: 14px 0 0;
+      list-style: none;
+      display: block;
     }
 
     #squadModal .squad-group-heading {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin:18px 0 0;
-      padding:0 2px 8px;
-      border:0;
-      background:transparent;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 12px;
+      margin: 18px 0 0;
+      padding: 0 0 7px;
+      border-bottom: 1px solid rgba(148,163,184,.14);
     }
-    #squadModal .squad-group-heading:first-child { margin-top:0; }
-    #squadModal .squad-group-heading strong { font-size:12px; letter-spacing:.08em; }
-    #squadModal .squad-group-heading small { display:none; }
+    #squadModal .squad-group-heading:first-child { margin-top: 0; }
+    #squadModal .squad-group-heading strong {
+      font-size: 12px;
+      letter-spacing: .08em;
+      font-weight: 850;
+    }
     #squadModal .squad-group-heading > span {
-      min-width:28px;
-      height:28px;
-      display:grid;
-      place-items:center;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:850;
-      background:rgba(148,163,184,.10);
+      min-width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(148,163,184,.10);
+      font-size: 11px;
+      font-weight: 850;
     }
-    #squadModal .squad-group-heading.starter { color:#4ade80; }
-    #squadModal .squad-group-heading.bench { color:#fbbf24; }
-    #squadModal .squad-group-heading.absent { color:#94a3b8; }
+    #squadModal .squad-group-heading.starter { color: #4ade80; }
+    #squadModal .squad-group-heading.bench { color: #fbbf24; }
+    #squadModal .squad-group-heading.absent { color: #94a3b8; }
 
     #squadModal .squad-row {
-      min-height:46px;
-      display:grid !important;
-      grid-template-columns:minmax(0,1fr) auto;
-      align-items:center;
-      gap:10px;
-      padding:0 2px !important;
-      margin:0 !important;
-      border:0 !important;
-      border-radius:0 !important;
-      border-bottom:1px solid rgba(148,163,184,.12) !important;
-      background:transparent !important;
-      color:#f8fafc;
-      opacity:1 !important;
+      position: relative;
+      min-height: 48px;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 104px;
+      align-items: center;
+      gap: 12px;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      border-bottom: 1px solid rgba(148,163,184,.10) !important;
+      background: transparent !important;
+      color: #f8fafc;
+      opacity: 1 !important;
     }
-    #squadModal .squad-row:last-of-type { border-bottom-color:transparent !important; }
     #squadModal .squad-row .player-name {
-      min-width:0;
-      font-size:15px;
-      font-weight:650;
-      text-decoration:none !important;
-      color:#f8fafc !important;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 15px;
+      font-weight: 650;
+      text-align: left;
+      color: #f8fafc !important;
+      text-decoration: none !important;
     }
-    #squadModal .squad-starter .player-name { color:#dffbe8 !important; }
-    #squadModal .squad-bench .player-name { color:#fff6dd !important; }
-    #squadModal .squad-absent .player-name { color:#94a3b8 !important; }
+    #squadModal .squad-absent .player-name { color: #94a3b8 !important; }
 
     #squadModal .squad-original-control {
-      position:absolute !important;
-      width:1px !important;
-      height:1px !important;
-      padding:0 !important;
-      margin:-1px !important;
-      overflow:hidden !important;
-      clip:rect(0,0,0,0) !important;
-      white-space:nowrap !important;
-      border:0 !important;
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0,0,0,0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
     }
 
-    #squadModal .squad-status-select {
-      width:112px;
-      min-height:32px;
-      padding:0 28px 0 9px;
-      border-radius:9px;
-      border:1px solid rgba(148,163,184,.18);
-      background:#0b1423;
-      color:#e5edf7;
-      font:inherit;
-      font-size:10px;
-      font-weight:750;
+    #squadModal .squad-status-button {
+      width: 104px;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.72);
+      color: #e5edf7;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
     }
-    #squadModal .squad-starter .squad-status-select {
-      border-color:rgba(74,222,128,.28);
-      color:#4ade80;
-      background:rgba(22,163,74,.08);
+    #squadModal .squad-status-button::after {
+      content: "▾";
+      font-size: 9px;
+      opacity: .7;
     }
-    #squadModal .squad-bench .squad-status-select {
-      border-color:rgba(245,158,11,.26);
-      color:#fbbf24;
-      background:rgba(245,158,11,.07);
+    #squadModal .squad-starter .squad-status-button {
+      border-color: rgba(74,222,128,.28);
+      color: #4ade80;
+      background: rgba(22,163,74,.08);
     }
-    #squadModal .squad-absent .squad-status-select {
-      color:#94a3b8;
-      background:rgba(100,116,139,.06);
+    #squadModal .squad-bench .squad-status-button {
+      border-color: rgba(245,158,11,.28);
+      color: #fbbf24;
+      background: rgba(245,158,11,.07);
     }
+    #squadModal .squad-absent .squad-status-button {
+      color: #94a3b8;
+      background: rgba(100,116,139,.06);
+    }
+
+    #squadModal .squad-status-menu {
+      position: absolute;
+      right: 0;
+      top: 40px;
+      z-index: 30;
+      width: 154px;
+      padding: 6px;
+      border: 1px solid rgba(148,163,184,.20);
+      border-radius: 12px;
+      background: #0b1423;
+      box-shadow: 0 14px 34px rgba(0,0,0,.38);
+    }
+    #squadModal .squad-status-menu[hidden] { display: none !important; }
+    #squadModal .squad-status-menu button {
+      width: 100%;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #e5edf7;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: left;
+    }
+    #squadModal .squad-status-menu button:active { background: rgba(255,255,255,.06); }
+    #squadModal .squad-status-menu .starter-choice { color: #4ade80; }
+    #squadModal .squad-status-menu .bench-choice { color: #fbbf24; }
+    #squadModal .squad-status-menu .absent-choice { color: #94a3b8; }
 
     #squadModal .starter-counter {
-      display:inline-flex;
-      align-items:center;
-      min-height:32px;
-      padding:0 10px;
-      border:1px solid rgba(74,222,128,.20);
-      border-radius:999px;
-      background:rgba(22,163,74,.06);
-      color:#86efac;
-      font-weight:800;
-      font-size:11px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid rgba(74,222,128,.20);
+      border-radius: 999px;
+      background: rgba(22,163,74,.06);
+      color: #86efac;
+      font-weight: 800;
+      font-size: 11px;
     }
 
-    @media (max-width:390px) {
-      #squadModal .squad-status-select { width:104px; font-size:9.5px; }
-      #squadModal .squad-row .player-name { font-size:14px; }
+    @media (max-width: 390px) {
+      #squadModal .squad-row { grid-template-columns: minmax(0, 1fr) 96px; }
+      #squadModal .squad-status-button { width: 96px; font-size: 9.5px; }
+      #squadModal .squad-row .player-name { font-size: 14px; }
     }
   `;
   document.head.appendChild(style);
@@ -140,6 +189,19 @@ if (modal && list) {
     if (!present || !starter) return null;
     if (!present.checked) return "absent";
     return starter.checked ? "starter" : "bench";
+  };
+
+  const statusLabel = (status) => {
+    if (status === "starter") return "Starter";
+    if (status === "bench") return "Innbytter";
+    return "Ikke med";
+  };
+
+  const closeAllMenus = (exceptRow = null) => {
+    list.querySelectorAll(":scope > .squad-row").forEach((row) => {
+      if (row === exceptRow) return;
+      row.querySelector(".squad-status-menu")?.setAttribute("hidden", "");
+    });
   };
 
   const applyStatus = (row, value) => {
@@ -165,28 +227,48 @@ if (modal && list) {
       change(present, false);
     }
 
+    row.querySelector(".squad-status-menu")?.setAttribute("hidden", "");
     requestAnimationFrame(renderSquadGroups);
   };
 
   const ensureStatusControl = (row) => {
-    let select = row.querySelector(".squad-status-select");
-    if (!select) {
-      select = document.createElement("select");
-      select.className = "squad-status-select";
-      select.setAttribute("aria-label", "Spillerstatus");
-      select.innerHTML = `
-        <option value="starter">Starter</option>
-        <option value="bench">Innbytter</option>
-        <option value="absent">Ikke til stede</option>
-      `;
-      select.addEventListener("click", (event) => event.stopPropagation());
-      select.addEventListener("change", (event) => {
+    let button = row.querySelector(".squad-status-button");
+    let menu = row.querySelector(".squad-status-menu");
+
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.className = "squad-status-button";
+      button.setAttribute("aria-label", "Endre spillerstatus");
+      button.addEventListener("click", (event) => {
         event.stopPropagation();
-        applyStatus(row, select.value);
+        const wasHidden = menu.hasAttribute("hidden");
+        closeAllMenus(row);
+        if (wasHidden) menu.removeAttribute("hidden");
+        else menu.setAttribute("hidden", "");
       });
-      row.appendChild(select);
+      row.appendChild(button);
     }
-    return select;
+
+    if (!menu) {
+      menu = document.createElement("div");
+      menu.className = "squad-status-menu";
+      menu.setAttribute("hidden", "");
+      menu.innerHTML = `
+        <button type="button" class="starter-choice" data-status="starter">Starter</button>
+        <button type="button" class="bench-choice" data-status="bench">Innbytter</button>
+        <button type="button" class="absent-choice" data-status="absent">Ikke til stede</button>
+      `;
+      menu.querySelectorAll("button[data-status]").forEach((choice) => {
+        choice.addEventListener("click", (event) => {
+          event.stopPropagation();
+          applyStatus(row, choice.dataset.status);
+        });
+      });
+      row.appendChild(menu);
+    }
+
+    return { button, menu };
   };
 
   function makeHeading(kind, title, count) {
@@ -209,11 +291,16 @@ if (modal && list) {
       rows.forEach((row) => {
         const status = statusForRow(row);
         if (!status) return;
+
         row.classList.remove("squad-starter", "squad-bench", "squad-absent");
         row.classList.add(`squad-${status}`);
-        const select = ensureStatusControl(row);
-        select.value = status;
-        row.querySelectorAll("label.checkbox").forEach((label) => label.classList.add("squad-original-control"));
+
+        row.querySelectorAll("label.checkbox").forEach((label) => {
+          label.classList.add("squad-original-control");
+        });
+
+        const { button } = ensureStatusControl(row);
+        button.textContent = statusLabel(status);
         groups[status].push(row);
       });
 
@@ -229,6 +316,7 @@ if (modal && list) {
         fragment.appendChild(makeHeading(kind, title, rowsInGroup.length));
         rowsInGroup.forEach((row) => fragment.appendChild(row));
       });
+
       list.replaceChildren(fragment);
     } finally {
       rendering = false;
@@ -240,8 +328,19 @@ if (modal && list) {
     requestAnimationFrame(renderSquadGroups);
   };
 
-  new MutationObserver(scheduleRender).observe(modal, { attributes:true, attributeFilter:["class"] });
-  new MutationObserver(scheduleRender).observe(list, { childList:true });
+  new MutationObserver(scheduleRender).observe(modal, {
+    attributes: true,
+    attributeFilter: ["class"]
+  });
+
+  new MutationObserver(scheduleRender).observe(list, { childList: true });
+
+  document.addEventListener("click", (event) => {
+    if (!modal.contains(event.target)) return;
+    if (event.target.closest(".squad-status-button, .squad-status-menu")) return;
+    closeAllMenus();
+  });
+
   list.addEventListener("change", scheduleRender);
   scheduleRender();
 }
