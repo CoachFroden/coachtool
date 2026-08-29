@@ -123,8 +123,25 @@
     </div>
   </div>
 
-  <!-- SCRIPT -->
-  <script type="module" src="kamper.js"></script>
+  <!-- Vent til Firebase Auth er ferdig gjenopprettet før kamper.js starter. -->
+  <script type="module">
+    import { auth } from "./firebase-refleksjon.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+    let stopAuthObserver = () => {};
+    const user = await new Promise((resolve) => {
+      stopAuthObserver = onAuthStateChanged(auth, (currentUser) => {
+        stopAuthObserver();
+        resolve(currentUser);
+      });
+    });
+
+    if (!user) {
+      window.location.href = "index.html";
+    } else {
+      await import("./kamper.js?v=20260829-1");
+    }
+  </script>
 
 </body>
 </html>
