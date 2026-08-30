@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Coach | Statistikk</title>
-  <link rel="stylesheet" href="statistikk.css?v=20260830-1" />
+  <link rel="stylesheet" href="statistikk.css?v=20260830-2" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#07111f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -29,14 +29,20 @@
 
     <section class="goalCard"><span>Målforskjell</span><strong id="goalSummary">–</strong></section>
 
+    <div class="matchPickerWrap">
+      <select id="matchSelect" class="matchPicker" aria-label="Velg kamp">
+        <option value="">Velg kamp</option>
+      </select>
+    </div>
+
     <section class="statsSection">
-      <div class="sectionHead"><span>SPILLERE</span><h2>Sesongstatistikk</h2></div>
+      <div class="sectionHead"><span>SPILLERE</span><h2 id="statsTitle">Sesongstatistikk</h2></div>
       <div class="statsHeader"><span>Spiller</span><span>K</span><span>Min</span><span>Mål</span><span>G</span><span>R</span></div>
       <div id="playerStats"><div class="skeleton"></div></div>
     </section>
 
     <p id="errorMsg" class="error"></p>
   </main>
-  <script type="module" src="statistikk.js?v=20260830-1"></script>
+  <script type="module" src="statistikk.js?v=20260830-2"></script>
 </body>
 </html>
