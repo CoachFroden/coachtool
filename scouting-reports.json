@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-30T21:15:00+02:00",
+  "profiles": [
+    {
+      "key": "mathopen-vadmyra-2",
+      "opponent": "Mathopen/Vadmyra 2",
+      "aliases": ["Mathopen/Vadmyra 2", "Mathopen Vadmyra 2", "Mathopen/Vadmyra"],
+      "matches": [
+        {
+          "id": "nff-9185068",
+          "date": "2026-09-03",
+          "time": "18:30",
+          "home": "Mathopen/Vadmyra 2",
+          "away": "Austrheim",
+          "competition": "G14 3. div. avd. 01 høst",
+          "venue": "Kongsmyren idrettsplass",
+          "teamScope": "G14-2",
+          "purpose": "Viktigste kontrollkamp: viser hvilken toerlagstropp Mathopen bruker nå, hvem som starter og hvem som står for målpoengene.",
+          "status": "upcoming",
+          "score": "",
+          "squad": [],
+          "goals": [],
+          "higherTeamPlayers": [],
+          "takeaways": [],
+          "summary": "Rapporten fylles når offentlig kamprapport er tilgjengelig etter kampen.",
+          "sourceUrls": [
+            "https://www.fotball.no/fotballdata/kamp/?fiksId=9185068"
+          ]
+        },
+        {
+          "id": "nff-12114206019",
+          "date": "2026-09-12",
+          "time": "13:00",
+          "home": "Mathopen/Vadmyra",
+          "away": "Sandviken/Varegg 2",
+          "competition": "G14 2. div. avd. 02 høst",
+          "venue": "Kongsmyren idrettsplass",
+          "teamScope": "G14-1",
+          "purpose": "Kontroll av førstelaget kort tid før Samnanger-kampen: viser hvilke av nøkkelspillerne som brukes på høyere nivå og dermed kan være aktuelle for toerlaget.",
+          "status": "upcoming",
+          "score": "",
+          "squad": [],
+          "goals": [],
+          "higherTeamPlayers": [],
+          "takeaways": [],
+          "summary": "Rapporten fylles når offentlig kamprapport er tilgjengelig etter kampen.",
+          "sourceUrls": [
+            "https://www.fotball.no/fotballdata/lag/hjem/?fiksId=154176"
+          ]
+        }
+      ]
+    }
+  ]
+}
