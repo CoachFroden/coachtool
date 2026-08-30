@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Motstandere og scouting | Coach</title>
-  <link rel="stylesheet" href="motstandere.css?v=20260830-3" />
+  <link rel="stylesheet" href="motstandere.css?v=20260830-4" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#07111f" />
 </head>
@@ -73,6 +73,21 @@
       </label>
 
       <button id="saveOpponentBtn" class="primary" type="button">Lagre motstanderprofil</button>
+    </section>
+
+    <section class="card hidden" id="trainingFocusCard">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Fra scouting til trening</p>
+          <h2>Treningsfokus mot neste motstander</h2>
+          <p id="trainingFocusIntro" class="muted training-focus-intro"></p>
+        </div>
+      </div>
+      <div id="trainingFocusList" class="training-focus-list"></div>
+      <div class="training-cues-wrap">
+        <span class="training-cues-label">Coachingord</span>
+        <div id="trainingFocusCues" class="training-cues"></div>
+      </div>
     </section>
 
     <section class="card">
@@ -157,6 +172,7 @@
   </main>
 
   <script type="module" src="motstandere-bootstrap.js?v=20260830-3"></script>
+  <script type="module" src="training-focus.js?v=20260830-1"></script>
   <script type="module" src="scouting-reports.js?v=20260830-1"></script>
 </body>
 </html>
