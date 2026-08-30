@@ -34,6 +34,18 @@ textarea { resize: vertical; line-height: 1.4; }
 .save-status { color: #86efac; font-size: .8rem; min-height: 1em; text-align: right; }
 .save-status.error { color: #fca5a5; }
 .hidden { display: none !important; }
+
+.training-focus-intro { margin: 6px 0 0; max-width: 800px; line-height: 1.45; }
+.training-focus-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.training-focus-item { display: flex; gap: 11px; align-items: flex-start; border: 1px solid #294158; background: #0d2136; border-radius: 13px; padding: 12px; }
+.training-focus-number { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border: 1px solid #0ea5e9; background: #0c4a6e; border-radius: 999px; font-weight: 800; }
+.training-focus-item h3 { margin: 1px 0 5px; font-size: .95rem; }
+.training-focus-item p { margin: 0; color: #b5c5d4; font-size: .84rem; line-height: 1.45; }
+.training-cues-wrap { margin-top: 13px; padding-top: 12px; border-top: 1px solid #20384f; }
+.training-cues-label { display: block; color: #7890a7; text-transform: uppercase; letter-spacing: .06em; font-size: .66rem; margin-bottom: 8px; }
+.training-cues { display: flex; flex-wrap: wrap; gap: 7px; }
+.training-cues span { border: 1px solid #2b4a63; background: #071522; border-radius: 999px; padding: 6px 9px; color: #dce8f2; font-size: .78rem; }
+
 .watch-list { display: grid; gap: 10px; }
 .watch-card { border: 1px solid #223b54; background: #0d2136; border-radius: 13px; padding: 13px; }
 .watch-top { display: flex; justify-content: space-between; gap: 12px; }
@@ -92,7 +104,7 @@ textarea { resize: vertical; line-height: 1.4; }
 
 @media (max-width: 760px) {
   .page-header { flex-direction: column; }
-  .form-grid, .form-grid.three, .watch-sections, .report-grid { grid-template-columns: 1fr; }
+  .form-grid, .form-grid.three, .watch-sections, .report-grid, .training-focus-list { grid-template-columns: 1fr; }
   .picker-row { flex-direction: column; }
   .save-status { text-align: left; }
   .report-head { flex-direction: column; }
