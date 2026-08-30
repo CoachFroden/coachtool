@@ -1,5 +1,5 @@
 import "./squad-status-ui.js?v=20260830-6";
-import "./start-guard.js?v=20260830-1";
+import "./start-guard.js?v=20260830-2";
 
 // Spillere som ikke lenger skal vises i aktive valg i appen.
 // Historiske kampdata og statistikk beholdes urørt.
