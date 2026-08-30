@@ -6,6 +6,8 @@ const summary = document.getElementById("summary");
 const goalSummary = document.getElementById("goalSummary");
 const playerStats = document.getElementById("playerStats");
 const errorMsg = document.getElementById("errorMsg");
+const matchSelect = document.getElementById("matchSelect");
+const statsTitle = document.getElementById("statsTitle");
 
 document.getElementById("backBtn").onclick = () => location.href = "oversikt.html";
 document.getElementById("logoutBtn").onclick = async () => {
@@ -72,6 +74,51 @@ function render({ team, players }) {
   playerStats.innerHTML = players.length ? players.map(p => `<div class="statsRow"><span class="player">${esc(p.name)}</span><span>${p.matches}</span><span class="minutes">${Math.round(p.minutes)}</span><span class="goals">${p.goals}</span><span class="yellow">${p.yellow}</span><span class="red">${p.red}</span></div>`).join("") : `<div class="empty">Ingen spillerstatistikk funnet ennå.</div>`;
 }
 
+function formatDate(value) {
+  if (!value) return "";
+  const [year, month, day] = String(value).split("-");
+  return year && month && day ? `${day}.${month}.${year}` : String(value);
+}
+
+function matchLabel(match) {
+  const opponent = match?.meta?.opponent || "Motstander";
+  const date = formatDate(match?.meta?.date);
+  const our = match?.score?.our ?? "–";
+  const their = match?.score?.their ?? "–";
+  return `${date ? date + " · " : ""}${opponent} · ${our}–${their}`;
+}
+
+function populateMatchSelect(matches) {
+  matchSelect.innerHTML = `<option value="">Velg kamp</option>`;
+  for (const match of matches) {
+    const option = document.createElement("option");
+    option.value = match.id;
+    option.textContent = matchLabel(match);
+    matchSelect.appendChild(option);
+  }
+}
+
+function showSeason() {
+  statsTitle.textContent = "Sesongstatistikk";
+  render(buildStats(allMatches));
+}
+
+function showMatch(match) {
+  statsTitle.textContent = `Kampstatistikk · ${match?.meta?.opponent || "Motstander"}`;
+  render(buildStats([match]));
+}
+
+let allMatches = [];
+
+matchSelect?.addEventListener("change", () => {
+  if (!matchSelect.value) {
+    showSeason();
+    return;
+  }
+  const match = allMatches.find(m => m.id === matchSelect.value);
+  if (match) showMatch(match);
+});
+
 onAuthStateChanged(auth, async user => {
   if (!user) { location.href = "index.html"; return; }
   try {
@@ -79,8 +126,12 @@ onAuthStateChanged(auth, async user => {
     const role = profile.exists() ? profile.data()?.role : null;
     if (role !== "coach" && role !== "assistantCoach") { await signOut(auth); location.href = "index.html"; return; }
     const snap = await getDocs(query(collection(db, "matches"), limit(100)));
-    const matches = snap.docs.map(d => d.data()).filter(m => String(m.status || "").toUpperCase() === "ENDED");
-    render(buildStats(matches));
+    allMatches = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(m => String(m.status || "").toUpperCase() === "ENDED")
+      .sort((a,b) => String(b?.meta?.date || "").localeCompare(String(a?.meta?.date || "")));
+    populateMatchSelect(allMatches);
+    showSeason();
   } catch (error) {
     console.error(error);
     errorMsg.textContent = "Kunne ikke hente statistikken. Prøv å laste siden på nytt.";
