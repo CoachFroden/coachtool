@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Motstandere og scouting | Coach</title>
+  <link rel="stylesheet" href="motstandere.css" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#07111f" />
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Samnanger G14</p>
+        <h1>Motstandere</h1>
+        <p class="subtitle">Scouting og kampforberedelser basert kun på offentlig tilgjengelig fotballinformasjon.</p>
+      </div>
+      <nav class="top-nav">
+        <a href="oversikt.html">Oversikt</a>
+        <a href="statistikk.html">Statistikk</a>
+      </nav>
+    </header>
+
+    <aside class="privacy-note">
+      <strong>Datagrense:</strong> Lagre bare offentlig tilgjengelige fotballopplysninger som kamp, lag, posisjon, mål og sportslige observasjoner. Ikke lagre fødselsdato, kontaktinfo, bilder, helseopplysninger eller private forhold om ungdomsspillere.
+    </aside>
+
+    <section class="opponent-picker card">
+      <label for="opponentSelect">Velg motstander</label>
+      <div class="picker-row">
+        <select id="opponentSelect"></select>
+        <button id="addOpponentBtn" type="button">+ Ny motstander</button>
+      </div>
+    </section>
+
+    <section class="card" id="opponentCard">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Motstanderprofil</p>
+          <h2 id="opponentTitle">–</h2>
+        </div>
+        <span id="saveStatus" class="save-status"></span>
+      </div>
+
+      <div class="form-grid">
+        <label>Nivåvurdering
+          <select id="levelRating">
+            <option value="unknown">Ikke vurdert</option>
+            <option value="top">Toppnivå</option>
+            <option value="strong">Sterkt lag</option>
+            <option value="middle">Midtre nivå</option>
+            <option value="lower">Lavere nivå</option>
+          </select>
+        </label>
+        <label>Forsterkningsfare
+          <select id="reinforcementRisk">
+            <option value="unknown">Ukjent</option>
+            <option value="low">Lav</option>
+            <option value="medium">Middels</option>
+            <option value="high">Høy</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="full-field">Overordnet motstandernotat
+        <textarea id="opponentNotes" rows="3" placeholder="F.eks. aggressive i press, farlige på høyresiden, stor spiss …"></textarea>
+      </label>
+
+      <label class="full-field">Kampplan mot laget
+        <textarea id="teamPlan" rows="4" placeholder="Konkrete grep vi ønsker å bruke mot dette laget."></textarea>
+      </label>
+
+      <button id="saveOpponentBtn" class="primary" type="button">Lagre motstanderprofil</button>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Watchlist</p>
+          <h2>Spillere å følge</h2>
+        </div>
+        <button id="newPlayerBtn" type="button">+ Legg til spiller</button>
+      </div>
+      <div id="watchList" class="watch-list"></div>
+    </section>
+
+    <section id="playerFormCard" class="card hidden">
+      <div class="section-head">
+        <h2 id="playerFormTitle">Ny spiller</h2>
+        <button id="cancelPlayerBtn" class="ghost" type="button">Avbryt</button>
+      </div>
+      <input id="playerId" type="hidden" />
+      <div class="form-grid three">
+        <label>Navn
+          <input id="playerName" type="text" autocomplete="off" />
+        </label>
+        <label>Posisjon
+          <input id="playerPosition" type="text" placeholder="F.eks. kant / indreløper" />
+        </label>
+        <label>Prioritet
+          <select id="playerPriority">
+            <option value="red">🔴 Høy</option>
+            <option value="orange">🟠 Følg med</option>
+            <option value="yellow">🟡 Situasjon</option>
+          </select>
+        </label>
+      </div>
+      <label class="full-field">Hvorfor følger vi spilleren?
+        <textarea id="playerReason" rows="3" placeholder="F.eks. spiller også G16, mange mål eller tydelig nøkkelrolle."></textarea>
+      </label>
+      <label class="full-field">Hva har vi observert sportslig?
+        <textarea id="playerObservation" rows="3" placeholder="Kun fotballfaglige observasjoner."></textarea>
+      </label>
+      <label class="full-field">Hvordan prøver vi å stoppe spilleren?
+        <textarea id="playerPlan" rows="3" placeholder="F.eks. hindre vending, sikre bak back, styre mot svakere side."></textarea>
+      </label>
+      <div class="form-grid">
+        <label>Offentlig kilde
+          <input id="playerSource" type="text" placeholder="F.eks. fotball.no kamprapport" />
+        </label>
+        <label>Kildelenke (valgfritt)
+          <input id="playerSourceUrl" type="url" placeholder="https://…" />
+        </label>
+      </div>
+      <button id="savePlayerBtn" class="primary" type="button">Lagre spiller</button>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Kampdag</p>
+          <h2>Sjekk motstandertropp</h2>
+        </div>
+      </div>
+      <p class="muted">Lim inn navnene fra en offentlig kamprapport/lagoppstilling. Appen sammenligner bare mot spillerne du allerede har på watchlisten.</p>
+      <textarea id="rosterInput" rows="7" placeholder="Ett navn per linje, eller navn separert med komma"></textarea>
+      <button id="checkRosterBtn" class="primary" type="button">Sjekk dagens tropp</button>
+      <div id="rosterResult" class="roster-result"></div>
+    </section>
+  </main>
+
+  <script type="module" src="motstandere.js"></script>
+</body>
+</html>
