@@ -30,7 +30,9 @@ textarea { resize: vertical; line-height: 1.4; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .form-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .full-field { margin: 12px 0; }
-.save-status { color: #86efac; font-size: .8rem; min-height: 1em; }
+.linked-match-info { margin: 7px 0 0; color: #93c5fd; font-size: .82rem; line-height: 1.35; }
+.save-status { color: #86efac; font-size: .8rem; min-height: 1em; text-align: right; }
+.save-status.error { color: #fca5a5; }
 .hidden { display: none !important; }
 .watch-list { display: grid; gap: 10px; }
 .watch-card { border: 1px solid #223b54; background: #0d2136; border-radius: 13px; padding: 13px; }
@@ -57,4 +59,5 @@ textarea { resize: vertical; line-height: 1.4; }
   .page-header { flex-direction: column; }
   .form-grid, .form-grid.three, .watch-sections { grid-template-columns: 1fr; }
   .picker-row { flex-direction: column; }
+  .save-status { text-align: left; }
 }
