@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Motstandere og scouting | Coach</title>
-  <link rel="stylesheet" href="motstandere.css?v=20260830-2" />
+  <link rel="stylesheet" href="motstandere.css?v=20260830-3" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#07111f" />
 </head>
@@ -86,6 +86,21 @@
       <div id="watchList" class="watch-list"></div>
     </section>
 
+    <section class="card" id="trackedReportsCard">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Fulgte kamper</p>
+          <h2>Kamprapporter før vi møter dem</h2>
+          <p class="muted report-intro">Her samler vi offentlig kampdata fra kamper som er spesielt nyttige for scoutingen: tropp, oppstilling når tilgjengelig, mål, spillere som brukes på høyere lag og hva funnene betyr for Samnanger.</p>
+          <p id="trackedReportsMeta" class="report-meta"></p>
+        </div>
+        <button id="refreshTrackedReports" type="button">Oppdater</button>
+      </div>
+      <div id="trackedMatchReports" class="tracked-reports">
+        <div class="empty">Henter kamprapporter …</div>
+      </div>
+    </section>
+
     <section id="playerFormCard" class="card hidden">
       <div class="section-head">
         <h2 id="playerFormTitle">Ny spiller</h2>
@@ -142,5 +157,6 @@
   </main>
 
   <script type="module" src="motstandere-bootstrap.js?v=20260830-3"></script>
+  <script type="module" src="scouting-reports.js?v=20260830-1"></script>
 </body>
 </html>
