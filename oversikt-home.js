@@ -1,6 +1,18 @@
 import { auth, db } from "./firebase-refleksjon.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
-import { collection, doc, getDoc, getDocs, limit, query } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  updateDoc
+} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+
+const DUPLICATE_START_CLEANUP_DATE = "2026-08-30";
+const DUPLICATE_START_CLEANUP_OPPONENT = "bønes";
 
 const els = {
   userLine: document.getElementById("userLine"),
@@ -30,6 +42,63 @@ function esc(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("no");
+}
+
+function isStartEvent(event) {
+  const rawText = normalizeText(event?.rawText);
+  if (rawText === "kamp startet") return true;
+
+  if (event?.type && event.type !== "text") return false;
+
+  const textWithoutClock = String(event?.text || "")
+    .replace(/^\s*\d{1,2}:\d{2}\s*[–-]\s*/u, "")
+    .trim();
+
+  return normalizeText(textWithoutClock) === "kamp startet";
+}
+
+async function cleanupDuplicateStartEvents(matches) {
+  const targets = matches.filter(match => {
+    const date = String(match?.meta?.date || "");
+    const opponent = normalizeText(match?.meta?.opponent);
+    return date === DUPLICATE_START_CLEANUP_DATE && opponent.includes(DUPLICATE_START_CLEANUP_OPPONENT);
+  });
+
+  for (const match of targets) {
+    const events = Array.isArray(match.events) ? match.events : [];
+    const startIndexes = [];
+
+    events.forEach((event, index) => {
+      if (isStartEvent(event)) startIndexes.push(index);
+    });
+
+    if (startIndexes.length <= 1) continue;
+
+    // Hendelser legges inn med unshift i kampmotoren, så den eldste/originale
+    // kampstarten ligger sist av de like start-hendelsene. Behold bare den.
+    const keepIndex = startIndexes[startIndexes.length - 1];
+    const cleanedEvents = events.filter((event, index) => {
+      if (!isStartEvent(event)) return true;
+      return index === keepIndex;
+    });
+
+    try {
+      await updateDoc(doc(db, "matches", match.id), {
+        events: cleanedEvents,
+        updatedAt: serverTimestamp()
+      });
+      match.events = cleanedEvents;
+      console.info(`Ryddet ${startIndexes.length - 1} duplikate kampstart-hendelser i ${match.id}`);
+    } catch (error) {
+      console.warn("Kunne ikke rydde duplikate kampstart-hendelser", error);
+    }
+  }
 }
 
 function dateValue(match) {
@@ -157,6 +226,13 @@ async function initForUser(user) {
   }
 
   const matches = await loadMatches();
+
+  // Engangsopprydding av dagens Bønes-kamp. Dette endrer kun duplikate
+  // teksthendelser "Kamp startet" og lar mål, kort, bytter og spilletid stå urørt.
+  if (role === "coach") {
+    await cleanupDuplicateStartEvents(matches);
+  }
+
   const upcoming = matches.filter(m => String(m.status || "").toUpperCase() !== "ENDED").sort((a,b) => dateValue(a) - dateValue(b));
   const played = matches.filter(m => String(m.status || "").toUpperCase() === "ENDED").sort((a,b) => dateValue(b) - dateValue(a));
 
