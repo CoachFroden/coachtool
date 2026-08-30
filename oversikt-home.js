@@ -17,6 +17,7 @@ const els = {
   allMatchesBtn: document.getElementById("allMatchesBtn"),
   allPlayedBtn: document.getElementById("allPlayedBtn"),
   statsBtn: document.getElementById("statsBtn"),
+  scoutBtn: document.getElementById("scoutBtn"),
   errorMsg: document.getElementById("errorMsg")
 };
 
@@ -171,6 +172,7 @@ els.logoutBtn.onclick = async () => {
 els.allMatchesBtn.onclick = () => window.location.href = "kampoversikt.html?view=upcoming";
 els.allPlayedBtn.onclick = () => window.location.href = "kampoversikt.html?view=played";
 els.statsBtn.onclick = () => window.location.href = "statistikk.html";
+els.scoutBtn.onclick = () => window.location.href = "motstandere.html";
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
