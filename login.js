@@ -66,7 +66,9 @@ function setAuthMode(mode) {
 }
 
 function routeByRole(role) {
-  if (role === "coach" || role === "assistantCoach") {
+  if (role === "coach") {
+    window.location.href = "fremside.html";
+  } else if (role === "assistantCoach") {
     window.location.href = "oversikt.html";
   } else {
     setError("Denne innloggingen er kun for trenerteam.");
