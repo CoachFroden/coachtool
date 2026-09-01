@@ -2,129 +2,132 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kamper</title>
-  <link rel="stylesheet" href="kamper.css?v=20260830-2" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Kamper · Coach</title>
+  <link rel="stylesheet" href="kamper.css?v=20260901-1" />
   <link rel="stylesheet" href="lineup-ui.css?v=20260830-1" />
+  <meta name="theme-color" content="#07111d" />
 </head>
 
 <body>
+  <header class="pageHeader">
+    <button class="back-btn" type="button" onclick="goBack()" aria-label="Gå tilbake">←</button>
+    <div class="headerText">
+      <span class="eyebrow">SAMNANGER G14</span>
+      <h1>Kamper</h1>
+      <p>Neste kamp og kommende kampplan</p>
+    </div>
+    <a class="overviewLink" href="oversikt.html">Oversikt</a>
+  </header>
 
-  <!-- HEADER -->
-  <button class="back-btn" onclick="goBack()">←</button>
-  <h1 class="title">Kamper</h1>
+  <main class="pageShell">
+    <section class="nextSection" aria-labelledby="nextHeading">
+      <div class="sectionHeader">
+        <div>
+          <span class="sectionKicker">KOMMENDE</span>
+          <h2 id="nextHeading">Neste kamp</h2>
+        </div>
+      </div>
 
-  <!-- MAIN -->
-  <div class="container">
-    <div id="nextMatch"></div>
-    <div id="matchGrid"></div>
-  </div>
+      <div id="nextMatch" class="nextMatchSlot" aria-live="polite">
+        <div class="loadingCard">
+          <span class="loadingBall">⚽</span>
+          <span>Laster neste kamp…</span>
+        </div>
+      </div>
+    </section>
 
-  <!-- =========================
-       PITCH MODAL (STOR)
-  ========================= -->
+    <section class="matchesSection" aria-labelledby="laterHeading">
+      <div class="sectionHeader">
+        <div>
+          <span class="sectionKicker">KAMPPLAN</span>
+          <h2 id="laterHeading">Senere kamper</h2>
+        </div>
+        <span id="matchCount" class="matchCount">Laster…</span>
+      </div>
+
+      <div id="matchGrid"></div>
+    </section>
+  </main>
+
   <div id="pitchModalOverlay" class="modal-overlay">
-    <div class="modal modal-large">
-
-      <!-- HEADER -->
+    <section class="modal modal-large" role="dialog" aria-modal="true" aria-labelledby="pitchModalTitle">
       <div class="modal-header">
-        <h2 id="pitchModalTitle"></h2>
-        <span id="closePitchModal" class="close">&times;</span>
+        <div>
+          <span class="modalKicker">LAGOPPSTILLING</span>
+          <h2 id="pitchModalTitle"></h2>
+        </div>
+        <button id="closePitchModal" class="close" type="button" aria-label="Lukk">&times;</button>
       </div>
 
       <div class="modal-content">
-
-        <!-- MATCH INFO -->
         <div class="match-info">
           <div class="match-date" id="pitchModalDate"></div>
-
           <div class="match-row">
             <span class="label">Sted</span>
             <span id="pitchModalVenue"></span>
           </div>
-
           <div class="match-row">
             <span class="label">Type</span>
             <span id="pitchModalType"></span>
           </div>
         </div>
-		
-		<div class="lineup-header">
-  <div class="lineup-title">Lagoppstilling</div>
-  <div id="formationDisplay" class="formation">
-    4-3-3
-  </div>
-</div>
 
-        <!-- PITCH -->
+        <div class="lineup-header">
+          <div class="lineup-title">Lagoppstilling</div>
+          <div id="formationDisplay" class="formation">4-3-3</div>
+        </div>
+
         <div id="pitch" class="pitch">
-
-          <!-- TOP HALF -->
           <div class="box box-top"></div>
           <div class="goal-area goal-top"></div>
           <div class="goal goal-top"></div>
           <div class="penalty penalty-top"></div>
 
-          <!-- BOTTOM HALF -->
           <div class="box box-bottom"></div>
           <div class="goal-area goal-bottom"></div>
           <div class="goal goal-bottom"></div>
           <div class="penalty penalty-bottom"></div>
-
         </div>
 
-        <!-- ACTION -->
-        <button id="removePlayerBtn" type="button">
-          Fjern valgt spiller
-        </button>
+        <button id="removePlayerBtn" type="button">Fjern valgt spiller</button>
 
-<!-- LOAN PLAYER INPUT -->
-<div class="loan-player-box">
-  <input id="loanPlayerInput" type="text" placeholder="Legg til lånespiller..." />
-  <button id="addLoanPlayerBtn">Legg til</button>
-</div>
+        <div class="loan-player-box">
+          <input id="loanPlayerInput" type="text" placeholder="Navn på lånespiller" />
+          <button id="addLoanPlayerBtn" type="button">Legg til</button>
+        </div>
 
-<!-- PLAYER LIST -->
-<div id="playerList"></div>
-
+        <div id="playerList"></div>
       </div>
-    </div>
+    </section>
   </div>
 
-  <!-- =========================
-       INFO MODAL (LITEN)
-  ========================= -->
   <div id="infoModalOverlay" class="modal-overlay">
-    <div class="modal modal-small">
-
-      <!-- HEADER -->
+    <section class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
       <div class="modal-header">
-        <h3 id="infoModalTitle"></h3>
-        <span id="closeInfoModal" class="close">&times;</span>
+        <div>
+          <span class="modalKicker">KAMPDETALJER</span>
+          <h3 id="infoModalTitle"></h3>
+        </div>
+        <button id="closeInfoModal" class="close" type="button" aria-label="Lukk">&times;</button>
       </div>
 
       <div class="modal-content">
-
-        <!-- MATCH INFO -->
         <div class="match-info">
           <div class="match-date" id="infoModalDate"></div>
-
           <div class="match-row">
             <span class="label">Sted</span>
             <span id="infoModalVenue"></span>
           </div>
-
           <div class="match-row">
             <span class="label">Type</span>
             <span id="infoModalType"></span>
           </div>
         </div>
-
       </div>
-    </div>
+    </section>
   </div>
 
-  <!-- Vent til Firebase Auth er ferdig gjenopprettet før kamper.js starter. -->
   <script type="module">
     import { auth } from "./firebase-refleksjon.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
@@ -140,10 +143,9 @@
     if (!user) {
       window.location.href = "index.html";
     } else {
-      await import("./kamper.js?v=20260829-1");
+      await import("./kamper.js?v=20260901-1");
       await import("./lineup-ui.js?v=20260830-1");
     }
   </script>
-
 </body>
 </html>
