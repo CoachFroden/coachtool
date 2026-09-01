@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Coach</title>
-  <link rel="stylesheet" href="coach.css?v=20260829-3" />
+  <link rel="stylesheet" href="coach.css?v=20260901-1" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#07111d" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,52 +21,143 @@
         <h1>Coach</h1>
         <p id="userLine" class="userLine">Laster…</p>
       </div>
-      <button id="logoutBtn" class="logoutIcon" type="button" aria-label="Logg ut" title="Logg ut">↗</button>
+      <button id="logoutBtn" class="logoutButton" type="button">Logg ut</button>
     </header>
 
-    <section class="welcomeCard">
+    <section class="welcomeCard" aria-labelledby="overviewHeading">
       <div class="welcomeGlow"></div>
       <div class="welcomeContent">
-        <span class="statusPill"><i></i> TRENER</span>
-        <h2>Alt kamprelatert<br><span>starter i Oversikt.</span></h2>
-        <p>Herfra ser du neste kamp, lagoppstilling, kampstart, kommende kamper og siste resultat.</p>
+        <span class="statusPill"><i></i> KAMP</span>
+        <h2 id="overviewHeading">Klar for neste kamp?</h2>
+        <p>Se neste kamp, lagoppstilling, kampstart, kommende kamper og siste resultat.</p>
       </div>
 
       <button id="openOverviewBtn" class="primaryAction" type="button">
-        <span class="primaryIcon">⚽</span>
+        <span class="primaryIcon" aria-hidden="true">⚽</span>
         <span class="primaryText">
           <small>Hovedinngang</small>
           <strong>Åpne Oversikt</strong>
         </span>
-        <span class="primaryArrow">→</span>
+        <span class="primaryArrow" aria-hidden="true">→</span>
       </button>
     </section>
 
-    <section class="quickInfo">
-      <div class="infoBlock">
-        <span class="infoLabel">ARBEIDSFLYT</span>
-        <strong>Oversikt → Lagoppstilling → Kamp</strong>
-        <p>Ingen ekstra menyer nødvendig.</p>
+    <section class="toolSection" aria-labelledby="playerToolsHeading">
+      <div class="sectionHeading">
+        <div>
+          <span class="sectionKicker">OPPFØLGING</span>
+          <h2 id="playerToolsHeading">Spillerutvikling</h2>
+        </div>
+        <span class="sectionCount">6 verktøy</span>
+      </div>
+
+      <div class="toolGrid">
+        <a href="refleksjon.html" class="toolCard toneBlue">
+          <span class="toolIcon" aria-hidden="true">📖</span>
+          <span class="toolText">
+            <strong>Refleksjoner</strong>
+            <small>Les spillernes refleksjoner</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
+
+        <a href="tilbakemeldinger.html" class="toolCard toneCyan">
+          <span class="toolIcon" aria-hidden="true">✍️</span>
+          <span class="toolText">
+            <strong>Tilbakemeldinger</strong>
+            <small>Skriv og følg opp svar</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
+
+        <a href="analyse.html" class="toolCard tonePurple">
+          <span class="toolIcon" aria-hidden="true">🤖</span>
+          <span class="toolText">
+            <strong>Analyse</strong>
+            <small>Analyse og utvikling per spiller</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
+
+        <a href="coach-utviklingsplan.html" class="toolCard toneGreen">
+          <span class="toolIcon" aria-hidden="true">🎯</span>
+          <span class="toolText">
+            <strong>Utviklingsplan</strong>
+            <small>Opprett og rediger planer</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
+
+        <a href="ukens-ovelser.html" class="toolCard toneOrange">
+          <span class="toolIcon" aria-hidden="true">⚡</span>
+          <span class="toolText">
+            <strong>Ukens øvelser</strong>
+            <small>Velg fokus og øvelser</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
+
+        <a href="thegame.html" class="toolCard tonePink">
+          <span class="toolIcon" aria-hidden="true">📈</span>
+          <span class="toolText">
+            <strong>Treningsdata</strong>
+            <small>Se øvelser per spiller</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="toolSection" aria-labelledby="coachToolsHeading">
+      <div class="sectionHeading">
+        <div>
+          <span class="sectionKicker">PLANLEGGING</span>
+          <h2 id="coachToolsHeading">Trenerverktøy</h2>
+        </div>
+      </div>
+
+      <div class="toolGrid compactGrid">
+        <a href="trenerlogg.html" class="toolCard toneTeal">
+          <span class="toolIcon" aria-hidden="true">📝</span>
+          <span class="toolText">
+            <strong>Trenerlogg</strong>
+            <small>Notater og egne refleksjoner</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
+
+        <a href="kamper.html" class="toolCard toneRed">
+          <span class="toolIcon" aria-hidden="true">📅</span>
+          <span class="toolText">
+            <strong>Kamper</strong>
+            <small>Registrer og administrer kamper</small>
+          </span>
+          <span class="toolArrow" aria-hidden="true">›</span>
+        </a>
       </div>
     </section>
 
     <section class="adminSection">
-      <button id="adminToggle" class="adminToggle" type="button" aria-expanded="false">
+      <button id="adminToggle" class="adminToggle" type="button" aria-expanded="false" aria-controls="adminPanel">
         <span>
           <small>BRUKES SJELDEN</small>
           <strong>Administrasjon</strong>
         </span>
-        <b>⌄</b>
+        <b aria-hidden="true">⌄</b>
       </button>
 
       <div id="adminPanel" class="adminPanel">
         <a href="resetspillerpassord.html" class="adminItem">
-          <span>🔑</span>
+          <span aria-hidden="true">🔑</span>
           <div><strong>Reset spillerpassord</strong><small>Sett nytt passord for spiller</small></div>
         </a>
         <a href="assistant-kamper.html" class="adminItem">
-          <span>🗂</span>
-          <div><strong>Assistent-kamper</strong><small>Godkjenn eller administrer ved behov</small></div>
+          <span aria-hidden="true">🗂</span>
+          <div><strong>Assistent-kamper</strong><small>Godkjenn eller administrer kamper</small></div>
+        </a>
+        <a href="spillerlogg.html" class="adminItem">
+          <span aria-hidden="true">👀</span>
+          <div><strong>Spillerlogg</strong><small>Se innlogging og aktivitet</small></div>
         </a>
       </div>
     </section>
@@ -74,6 +165,6 @@
     <footer class="dashboardFooter">COACH TOOL · 2026</footer>
   </main>
 
-  <script type="module" src="dashboard-home.js?v=20260829-1"></script>
+  <script type="module" src="dashboard-home.js?v=20260901-1"></script>
 </body>
 </html>
