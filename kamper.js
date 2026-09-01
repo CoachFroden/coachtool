@@ -128,6 +128,7 @@ function buildDefault451Lineup() {
 ========================= */
 const nextDiv = document.getElementById("nextMatch");
 const gridDiv = document.getElementById("matchGrid");
+const matchCount = document.getElementById("matchCount");
 
 const pitchModalOverlay = document.getElementById("pitchModalOverlay");
 const pitchModalTitle = document.getElementById("pitchModalTitle");
@@ -158,19 +159,75 @@ function isPlayerReadOnly() {
   return userRole === "player";
 }
 
-function formatDateNorwegian(dateStr, timeStr) {
-  const date = new Date(dateStr);
+function getMatchTime(match) {
+  return String(match?.time || match?.startTime || "").trim();
+}
 
-  const options = {
+function safeDate(dateStr) {
+  if (!dateStr) return null;
+  const date = new Date(`${dateStr}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateNorwegian(dateStr, timeStr) {
+  const date = safeDate(dateStr);
+  if (!date) return "Dato ikke satt";
+
+  const formatted = date.toLocaleDateString("no-NO", {
     weekday: "long",
     day: "numeric",
     month: "long"
+  });
+
+  const label = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  return timeStr ? `${label} kl ${timeStr}` : label;
+}
+
+function formatCardDate(dateStr) {
+  const date = safeDate(dateStr);
+  if (!date) return { day: "–", month: "DATO" };
+
+  return {
+    day: date.toLocaleDateString("no-NO", { day: "numeric" }),
+    month: date.toLocaleDateString("no-NO", { month: "short" })
+      .replace(".", "")
+      .toLocaleUpperCase("no-NO")
   };
+}
 
-  let formatted = date.toLocaleDateString("no-NO", options);
-  formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+function formatNextDate(dateStr) {
+  const date = safeDate(dateStr);
+  if (!date) return "Ikke satt";
 
-  return `${formatted} kl ${timeStr}`;
+  return date.toLocaleDateString("no-NO", {
+    weekday: "short",
+    day: "numeric",
+    month: "short"
+  }).replace(".", "");
+}
+
+function fixtureTeams(match) {
+  const ourTeam = match.ourTeam || "Samnanger";
+  const opponent = match.opponent || "Motstander";
+  const away = match.venueType === "away";
+
+  return away
+    ? { home: opponent, away: ourTeam }
+    : { home: ourTeam, away: opponent };
+}
+
+function escapeHtml(value) {
+  const element = document.createElement("div");
+  element.textContent = String(value ?? "");
+  return element.innerHTML;
+}
+
+function localDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function clearSelections() {
@@ -976,63 +1033,159 @@ function setupRemovePlayerButton() {
    MATCHES
 ========================= */
 async function loadMatches() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDateString();
 
-  const q = query(
-    collection(db, "matches"),
-    where("meta.date", ">=", today),
-    orderBy("meta.date")
-  );
+  nextDiv.onclick = null;
+  gridDiv.innerHTML = "";
 
-  const snap = await getDocs(q);
-  const matches = [];
+  try {
+    const q = query(
+      collection(db, "matches"),
+      where("meta.date", ">=", today),
+      orderBy("meta.date")
+    );
 
-  snap.forEach((docSnap) => {
-    const data = docSnap.data();
-    const meta = data.meta || {};
+    const snap = await getDocs(q);
+    const matches = [];
 
-    matches.push({
-      id: docSnap.id,
-      ...meta
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      const meta = data.meta || {};
+
+      matches.push({
+        id: docSnap.id,
+        ...meta,
+        time: getMatchTime(meta)
+      });
     });
-  });
 
-  if (matches.length === 0) {
+    matches.sort((a, b) => {
+      const first = `${a.date || ""}T${getMatchTime(a) || "00:00"}`;
+      const second = `${b.date || ""}T${getMatchTime(b) || "00:00"}`;
+      return first.localeCompare(second);
+    });
+
+    if (matches.length === 0) {
+      nextDiv.innerHTML = `
+        <div class="emptyState">
+          <strong>Ingen kommende kamper</strong>
+          <span>Når en ny kamp registreres, vises den her.</span>
+        </div>
+      `;
+      if (matchCount) matchCount.textContent = "0 kamper";
+      gridDiv.innerHTML = `
+        <div class="emptyState">
+          <span>Kampplanen er tom.</span>
+        </div>
+      `;
+      return;
+    }
+
+    const next = matches[0];
+    const nextTeams = fixtureTeams(next);
+    const nextTime = getMatchTime(next) || "Ikke satt";
+    const nextVenue = next.venueName || "Sted ikke satt";
+    const nextIsAway = next.venueType === "away";
+
     nextDiv.innerHTML = `
-      <div class="next-card">
-        <h2>Ingen kommende kamper</h2>
+      <button class="next-card" type="button" aria-label="Åpne lagoppstillingen mot ${escapeHtml(next.opponent || "motstander")}">
+        <div class="nextCardTop">
+          <span class="nextLabel">NESTE KAMP</span>
+          <span class="venueBadge ${nextIsAway ? "away" : ""}">
+            ${nextIsAway ? "Bortekamp" : "Hjemmekamp"}
+          </span>
+        </div>
+
+        <div class="fixture">
+          <div class="team">
+            <span class="teamCrest" aria-hidden="true">⚽</span>
+            <strong>${escapeHtml(nextTeams.home)}</strong>
+          </div>
+          <span class="versus">MOT</span>
+          <div class="team awayTeam">
+            <span class="teamCrest" aria-hidden="true">🛡️</span>
+            <strong>${escapeHtml(nextTeams.away)}</strong>
+          </div>
+        </div>
+
+        <div class="matchMetaGrid">
+          <div class="matchMeta">
+            <small>Dato</small>
+            <strong>${escapeHtml(formatNextDate(next.date))}</strong>
+          </div>
+          <div class="matchMeta">
+            <small>Tid</small>
+            <strong>${escapeHtml(nextTime)}</strong>
+          </div>
+          <div class="matchMeta">
+            <small>Sted</small>
+            <strong>${escapeHtml(nextVenue)}</strong>
+          </div>
+        </div>
+
+        <div class="nextAction">
+          <span>Åpne lagoppstilling</span>
+          <span aria-hidden="true">→</span>
+        </div>
+      </button>
+    `;
+
+    nextDiv.querySelector(".next-card").onclick = () => openPitchModal(next);
+
+    const laterMatches = matches.slice(1);
+    if (matchCount) {
+      matchCount.textContent = `${laterMatches.length} ${laterMatches.length === 1 ? "kamp" : "kamper"}`;
+    }
+
+    if (laterMatches.length === 0) {
+      gridDiv.innerHTML = `
+        <div class="emptyState">
+          <span>Ingen flere kamper er registrert.</span>
+        </div>
+      `;
+      return;
+    }
+
+    laterMatches.forEach((match) => {
+      const date = formatCardDate(match.date);
+      const teams = fixtureTeams(match);
+      const time = getMatchTime(match) || "–";
+      const location = match.venueName || "Sted ikke satt";
+      const type = match.venueType === "away" ? "Bortekamp" : "Hjemmekamp";
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "match-card";
+      button.innerHTML = `
+        <span class="dateBadge">
+          <strong>${escapeHtml(date.day)}</strong>
+          <small>${escapeHtml(date.month)}</small>
+        </span>
+        <span class="matchCardMain">
+          <small>${type}</small>
+          <strong>${escapeHtml(teams.home)} – ${escapeHtml(teams.away)}</strong>
+          <span>${escapeHtml(location)}</span>
+        </span>
+        <span class="matchCardRight">
+          <span class="matchTime">${escapeHtml(time)}</span>
+          <span class="matchChevron" aria-hidden="true">›</span>
+        </span>
+      `;
+
+      button.onclick = () => openInfoModal(match);
+      gridDiv.appendChild(button);
+    });
+  } catch (error) {
+    console.error("Kunne ikke laste kamper:", error);
+    nextDiv.innerHTML = `
+      <div class="errorState">
+        <strong>Kunne ikke laste kampene</strong>
+        <span>Prøv å åpne siden på nytt.</span>
       </div>
     `;
-    return;
+    if (matchCount) matchCount.textContent = "Feil";
+    gridDiv.innerHTML = "";
   }
-
-  const next = matches[0];
-
-  nextDiv.innerHTML = `
-    <div class="next-card">
-      <h2>${next.opponent || ""}</h2>
-      <p>${next.date || ""} kl ${next.time || ""}</p>
-      <p>${next.venueName || ""}</p>
-      <p>${next.venueType === "away" ? "Borte" : "Hjemme"}</p>
-    </div>
-  `;
-
-  nextDiv.onclick = () => openPitchModal(next);
-
-  matches.forEach((match, index) => {
-    if (index === 0) return;
-
-    const div = document.createElement("div");
-    div.className = "match-card";
-
-    div.innerHTML = `
-      <strong>${match.opponent || ""}</strong>
-      <span>${formatDateNorwegian(match.date, match.time)}</span>
-    `;
-
-    div.onclick = () => openInfoModal(match);
-    gridDiv.appendChild(div);
-  });
 }
 
 /* =========================
