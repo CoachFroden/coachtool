@@ -76,7 +76,7 @@ function routeByRole(role) {
 }
 
 // Hvis treneren allerede er innlogget når appen åpnes,
-// gå rett til Oversikt i stedet for å vise innloggingssiden igjen.
+// gå til riktig startside for rollen i stedet for å vise innloggingssiden igjen.
 onAuthStateChanged(auth, async (user) => {
   if (!user || manualLoginInProgress || isRegisterMode) return;
 
