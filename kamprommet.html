@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Kamprommet · Coach</title>
+  <meta name="theme-color" content="#07111d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root { color-scheme: dark; background: #07111d; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07111d; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { padding-top: env(safe-area-inset-top); }
+    .appbar {
+      height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 16px;
+      border-bottom: 1px solid rgba(132, 170, 205, .18); background: #07111d;
+    }
+    .back {
+      appearance: none; border: 0; background: transparent; color: #8dd9ff; padding: 8px 8px 8px 0;
+      font: inherit; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;
+      text-decoration: none;
+    }
+    .back span { font-size: 28px; line-height: 16px; font-weight: 400; }
+    .title { color: #f4f8fc; font-size: 15px; font-weight: 800; letter-spacing: .04em; margin-left: auto; }
+    iframe { display: block; width: 100%; height: calc(100% - 54px); border: 0; background: #07130e; }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <a class="back" href="fremside.html" aria-label="Tilbake til Coach"><span>‹</span> Coach</a>
+    <div class="title">KAMPROMMET</div>
+  </header>
+  <iframe
+    src="https://kampvideo.vercel.app/"
+    title="Samnanger Kamprom"
+    allow="fullscreen"
+    referrerpolicy="strict-origin-when-cross-origin"
+  ></iframe>
+</body>
+</html>
