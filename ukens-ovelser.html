@@ -1,49 +1,55 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ukens øvelser</title>
-
-<link rel="stylesheet" href="ukens-ovelser.css">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#07111d">
+  <title>Treningsplanlegger · Samnanger G14</title>
+  <link rel="stylesheet" href="ukens-ovelser.css?v=20260902-1">
 </head>
-
 <body>
-
-
-<div class="container">
-
-
-
-<h1>⚽ Ukens øvelser</h1>
-
-<div class="card">
-
-<h3>Velg uke</h3>
-<select id="weekSelect"></select>
-
-<label>Ukens fokus</label>
-<input id="focusInput" placeholder="f.eks Angrep via kant">
-
-<h3>Øvelser</h3>
-
-<div id="exerciseContainer"></div>
-
-<button onclick="addExercise()">+ Legg til øvelse</button>
-<button class="remove-btn" onclick="removeExercise()">− Fjern øvelse</button>
-
-<br><br>
-
-<button onclick="saveExercises()">Lagre</button>
-
-</div>
-
-<button class="back-btn" onclick="history.back()">← Tilbake</button>
-
-</div>
-
-<script type="module" src="coach.js"></script>
-
+  <main class="plannerShell">
+    <header class="topbar">
+      <button class="backButton" type="button" onclick="history.back()">← Forsiden</button>
+      <div class="brand"><span>⚽</span><div><b>SAMNANGER</b><small>G14 · TRENER</small></div></div>
+      <span id="saveStatus" class="saveStatus">Klar</span>
+    </header>
+    <section class="hero">
+      <div><span class="eyebrow">ØKTVERKTØY</span><h1>Trenings-<br><em>planlegger</em></h1><p>Planlegg, juster og gjenbruk økter uke for uke.</p></div>
+      <div class="duration"><b id="totalMinutes">90</b><span>minutter</span></div>
+    </section>
+    <section class="weekbar">
+      <label>Velg uke<select id="weekSelect"></select></label>
+      <button id="newPlanBtn" class="secondary" type="button">Ny tom plan</button>
+      <a class="pdfLink" href="treningsokt_g14.pdf" target="_blank" rel="noopener">Åpne original PDF ↗</a>
+    </section>
+    <form id="planForm">
+      <section class="planCard introCard">
+        <div class="fieldGrid">
+          <label class="wide">Navn på økten<input id="titleInput" required></label>
+          <label>Dato<input id="dateInput" type="date"></label>
+          <label>Hovedfokus<input id="focusInput" placeholder="Hva skal laget utvikle?"></label>
+          <label class="wide">Beskjed før start<textarea id="introInput" rows="3" placeholder="Hva skal spillerne forstå før økten begynner?"></textarea></label>
+        </div>
+      </section>
+      <div class="sectionHeading"><div><span>ØKTPLAN</span><h2>Dagens deler</h2></div><button id="addSectionBtn" class="secondary" type="button">+ Legg til del</button></div>
+      <div id="sections"></div>
+      <div class="actions"><button id="saveBtn" class="primary" type="submit">Lagre treningsplan</button></div>
+    </form>
+    <section class="progressionCard">
+      <span class="eyebrow">PROGRESJON</span><h2>Plan for kommende uker</h2><textarea id="progressionInput" rows="6"></textarea>
+    </section>
+  </main>
+  <template id="sectionTemplate">
+    <article class="sessionPart">
+      <div class="partNumber"></div>
+      <div class="partBody">
+        <div class="partTop"><input class="partTitle" aria-label="Navn på øktdel" placeholder="Navn på øktdel" required><label class="minutes"><input class="partMinutes" type="number" min="0" max="180" value="10"> min</label><button class="removePart" type="button" title="Fjern denne delen">×</button></div>
+        <label>Gjennomføring<textarea class="partDetails" rows="3"></textarea></label>
+        <label>Coachingpunkter<textarea class="partCoaching" rows="3"></textarea></label>
+      </div>
+    </article>
+  </template>
+  <script type="module" src="training-planner.js?v=20260902-1"></script>
 </body>
 </html>
