@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-30T21:15:00+02:00",
+  "updatedAt": "2026-09-04T18:18:34+02:00",
   "profiles": [
     {
       "key": "mathopen-vadmyra-2",
@@ -17,15 +17,22 @@
           "venue": "Kongsmyren idrettsplass",
           "teamScope": "G14-2",
           "purpose": "Viktigste kontrollkamp: viser hvilken toerlagstropp Mathopen bruker nå, hvem som starter og hvem som står for målpoengene.",
-          "status": "upcoming",
-          "score": "",
+          "status": "complete",
+          "score": "0-6",
           "squad": [],
           "goals": [],
           "higherTeamPlayers": [],
-          "takeaways": [],
-          "summary": "Rapporten fylles når offentlig kamprapport er tilgjengelig etter kampen.",
+          "takeaways": [
+            "Mathopen/Vadmyra 2 tapte 0-6 hjemme mot Austrheim. Sammen med 1-4-tapet mot Austevoll 2 betyr det 1-10 i målforskjell etter de to første høstkampene.",
+            "Resultatet styrker inntrykket av at Mathopen kan straffes dersom Samnanger angriper med tempo etter brudd og får nok spillere inn i avslutningsfasen.",
+            "Vi bør fortsatt prioritere restforsvar og kontroll sentralt: den offentlige kamprapporten inneholder ingen registrert tropp eller kamphendelser, så vi kan ikke vite om dette var en ordinær eller svekket Mathopen-tropp.",
+            "Ikke trekk spillerkonklusjoner fra 0-6-kampen. NFF har per 4. september ikke publisert/registrert kamptropp, målscorere eller øvrige kamphendelser for oppgjøret."
+          ],
+          "summary": "Austrheim vant 6-0 borte mot Mathopen/Vadmyra 2. Det er et tydelig sportslig signal: Mathopen har åpnet høstserien med to tap og 1-10 i målforskjell. Samtidig er spillerdataene fra selve kampen utilgjengelige offentlig; NFF-siden oppgir at kamptropp ikke er publisert eller registrert og at ingen kamphendelser er registrert. Derfor kan vi bruke resultatet til å justere lagvurderingen og treningsfokuset, men ikke til å fastslå hvem som spilte, hvem som scoret eller om laget var forsterket/svekket.",
           "sourceUrls": [
-            "https://www.fotball.no/fotballdata/kamp/?fiksId=9185068"
+            "https://www.fotball.no/fotballdata/kamp/?fiksId=9185068",
+            "https://www.fotball.no/fotballdata/lag/hjem/?fiksId=180445",
+            "https://www.fotball.no/fotballdata/lag/hjem/?fiksId=170874"
           ]
         },
         {
