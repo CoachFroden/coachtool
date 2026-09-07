@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Kampstartere · Coach</title>
+  <title>Startellevere · Coach</title>
   <meta name="theme-color" content="#07111d">
-  <link rel="stylesheet" href="kampstartere.css?v=20260907-1">
+  <link rel="stylesheet" href="kampstartere.css?v=20260907-2">
 </head>
 <body>
   <header class="pageHeader">
     <button class="backButton" type="button" aria-label="Tilbake til forsiden" onclick="window.location.href='fremside.html'">←</button>
     <div class="headerText">
       <span class="eyebrow">KAMPADMINISTRASJON</span>
-      <h1>Kampstartere</h1>
+      <h1>Startellevere</h1>
       <p id="userLine">Laster…</p>
     </div>
     <button id="logoutBtn" class="logoutButton" type="button">Logg ut</button>
@@ -24,24 +24,24 @@
         <span class="introIcon" aria-hidden="true">👥</span>
         <div>
           <span class="sectionKicker">SAMLET OVERSIKT</span>
-          <h2 id="introHeading">Hvem startet kampene?</h2>
-          <p>Se hvem som satte i gang hver kamp, og når det skjedde.</p>
+          <h2 id="introHeading">Hvem startet på banen?</h2>
+          <p>Se startelleveren fra hver kamp og hvor ofte hver spiller har startet.</p>
         </div>
       </div>
     </section>
 
     <section class="statsGrid" aria-label="Nøkkeltall">
       <article class="statCard">
-        <span>Startede kamper</span>
+        <span>Kamper i oversikten</span>
         <strong id="matchTotal">–</strong>
       </article>
       <article class="statCard">
-        <span>Registrerte startere</span>
-        <strong id="starterTotal">–</strong>
+        <span>Spillere som har startet</span>
+        <strong id="playerTotal">–</strong>
       </article>
       <article class="statCard warningStat">
-        <span>Mangler starter</span>
-        <strong id="unknownTotal">–</strong>
+        <span>Ufullstendige oppstillinger</span>
+        <strong id="incompleteTotal">–</strong>
       </article>
     </section>
 
@@ -49,10 +49,10 @@
       <div class="sectionHeading">
         <div>
           <span class="sectionKicker">FORDELING</span>
-          <h2 id="summaryHeading">Kamper per trener</h2>
+          <h2 id="summaryHeading">Starter per spiller</h2>
         </div>
       </div>
-      <div id="starterSummary" class="starterSummary">
+      <div id="playerSummary" class="starterSummary">
         <div class="loadingRow">Laster oversikt…</div>
       </div>
     </section>
@@ -61,15 +61,15 @@
       <div class="sectionHeading listHeading">
         <div>
           <span class="sectionKicker">KAMP FOR KAMP</span>
-          <h2 id="matchesHeading">Alle startede kamper</h2>
+          <h2 id="matchesHeading">Startellever kamp for kamp</h2>
         </div>
         <span id="visibleCount" class="visibleCount"></span>
       </div>
 
       <div class="controls">
-        <label for="starterFilter">Vis kamper startet av</label>
+        <label for="playerFilter">Vis kamper der spilleren startet</label>
         <div class="controlRow">
-          <select id="starterFilter" disabled>
+          <select id="playerFilter" disabled>
             <option value="all">Alle</option>
           </select>
           <button id="refreshBtn" class="refreshButton" type="button" disabled>Oppdater</button>
@@ -85,6 +85,6 @@
     </section>
   </main>
 
-  <script type="module" src="kampstartere.js?v=20260907-1"></script>
+  <script type="module" src="kampstartere.js?v=20260907-2"></script>
 </body>
 </html>
