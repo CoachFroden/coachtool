@@ -15,19 +15,18 @@ import {
 const userLine = document.getElementById("userLine");
 const logoutBtn = document.getElementById("logoutBtn");
 const refreshBtn = document.getElementById("refreshBtn");
-const starterFilter = document.getElementById("starterFilter");
+const playerFilter = document.getElementById("playerFilter");
 const matchTotal = document.getElementById("matchTotal");
-const starterTotal = document.getElementById("starterTotal");
-const unknownTotal = document.getElementById("unknownTotal");
-const starterSummary = document.getElementById("starterSummary");
+const playerTotal = document.getElementById("playerTotal");
+const incompleteTotal = document.getElementById("incompleteTotal");
+const playerSummary = document.getElementById("playerSummary");
 const matchList = document.getElementById("matchList");
 const visibleCount = document.getElementById("visibleCount");
 
 const ACTIVE_STATUSES = new Set(["LIVE", "PAUSED", "TEMP_STOPPED", "HALFTIME"]);
 const STARTED_STATUSES = new Set([...ACTIVE_STATUSES, "ENDED"]);
-const UNKNOWN_KEY = "__unknown__";
+const EXPECTED_STARTERS = 11;
 
-let currentUser = null;
 let rows = [];
 
 logoutBtn.addEventListener("click", async () => {
@@ -36,7 +35,7 @@ logoutBtn.addEventListener("click", async () => {
 });
 
 refreshBtn.addEventListener("click", loadOverview);
-starterFilter.addEventListener("change", renderMatches);
+playerFilter.addEventListener("change", renderMatches);
 
 function makeElement(tag, className, text) {
   const element = document.createElement(tag);
@@ -47,6 +46,10 @@ function makeElement(tag, className, text) {
 
 function asText(value) {
   return String(value ?? "").trim();
+}
+
+function normalizedName(value) {
+  return asText(value).toLocaleLowerCase("no").replace(/\s+/g, " ");
 }
 
 function toDate(value) {
@@ -69,23 +72,17 @@ function scheduledDate(match) {
 
 function findStartEvent(match) {
   if (!Array.isArray(match.events)) return null;
-  return match.events.find((event) => {
-    const text = asText(event?.rawText || event?.text);
-    return /kamp startet/i.test(text);
-  }) || null;
+  return match.events.find((event) =>
+    /kamp startet/i.test(asText(event?.rawText || event?.text))
+  ) || null;
 }
 
-function profileName(profile, uid) {
-  const name = asText(profile?.name || profile?.navn || profile?.displayName || profile?.email);
-  if (name) return name;
-  if (uid && currentUser?.uid === uid) return currentUser.email || "Innlogget trener";
-  return "Ukjent / eldre kamp";
-}
-
-function roleLabel(role) {
-  if (role === "coach") return "Hovedtrener";
-  if (role === "assistantCoach") return "Assistenttrener";
-  return "Trenerrolle mangler";
+function isStartedMatch(match) {
+  return Boolean(
+    match.startedAt ||
+    findStartEvent(match) ||
+    STARTED_STATUSES.has(asText(match.status).toUpperCase())
+  );
 }
 
 function statusLabel(status) {
@@ -109,19 +106,15 @@ function typeLabel(type) {
   return labels[type] || type || "Kamp";
 }
 
-function initials(name, unknown = false) {
-  if (unknown) return "?";
-  const parts = asText(name).split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-}
-
 function dateBadgeParts(match) {
   const date = scheduledDate(match);
   if (!date) return { day: "–", month: "UKJ" };
   return {
     day: new Intl.DateTimeFormat("no-NO", { day: "2-digit" }).format(date),
-    month: new Intl.DateTimeFormat("no-NO", { month: "short" }).format(date).replace(".", "").toUpperCase()
+    month: new Intl.DateTimeFormat("no-NO", { month: "short" })
+      .format(date)
+      .replace(".", "")
+      .toUpperCase()
   };
 }
 
@@ -135,20 +128,6 @@ function formatScheduled(match) {
   }).format(date);
   const time = asText(match.meta?.startTime);
   return time ? `${dateText} · kl. ${time}` : dateText;
-}
-
-function formatStartedAt(date) {
-  if (!date) return "Starttid mangler";
-  const dateText = new Intl.DateTimeFormat("no-NO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit"
-  }).format(date);
-  const timeText = new Intl.DateTimeFormat("no-NO", {
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
-  return `${dateText} · ${timeText}`;
 }
 
 function fixtureLabel(match) {
@@ -166,49 +145,111 @@ function scoreLabel(match) {
   return `${our}–${their}`;
 }
 
-function isStartedMatch(match) {
-  return Boolean(
-    match.startedAt ||
-    findStartEvent(match) ||
-    STARTED_STATUSES.has(asText(match.status).toUpperCase())
-  );
+function normalizePlayer(player, fallbackId = "") {
+  if (!player) return null;
+  const name = asText(player.fullName || player.name);
+  if (!name) return null;
+  return {
+    id: asText(player.id || fallbackId),
+    name,
+    isLoan: player.isLoan === true || asText(player.id || fallbackId).startsWith("loan_")
+  };
+}
+
+function playerEntries(players) {
+  if (Array.isArray(players)) {
+    return players.map((player, index) => [asText(player?.id) || String(index), player]);
+  }
+  if (!players || typeof players !== "object") return [];
+  return Object.entries(players);
+}
+
+function isMinuteZeroInterval(player) {
+  if (!Array.isArray(player?.intervals)) return false;
+  return player.intervals.some((interval) => Number(interval?.in) === 0);
+}
+
+function lineupPlayers(match) {
+  if (!Array.isArray(match.lineup)) return [];
+  return match.lineup
+    .map((player, index) => normalizePlayer(player, `lineup-${index}`))
+    .filter(Boolean);
+}
+
+function squadStarters(match) {
+  if (!Array.isArray(match.squad?.starters)) return [];
+  return match.squad.starters
+    .map((player, index) => normalizePlayer(player, `squad-${index}`))
+    .filter(Boolean);
+}
+
+function storedPlayerStarters(match) {
+  return playerEntries(match.players)
+    .filter(([, player]) => player?.starter === true || isMinuteZeroInterval(player))
+    .map(([id, player]) => normalizePlayer(player, id))
+    .filter(Boolean);
+}
+
+function samePlayer(a, b) {
+  if (a.id && b.id && a.id === b.id) return true;
+  return normalizedName(a.name) === normalizedName(b.name);
+}
+
+function uniquePlayers(players) {
+  const unique = [];
+  players.forEach((player) => {
+    if (!player || unique.some((current) => samePlayer(current, player))) return;
+    unique.push(player);
+  });
+  return unique;
+}
+
+function getStarters(match) {
+  const stored = storedPlayerStarters(match);
+  const lineup = lineupPlayers(match);
+  const squad = squadStarters(match);
+
+  if (stored.length) {
+    const ordered = lineup.filter((lineupPlayer) =>
+      stored.some((storedPlayer) => samePlayer(lineupPlayer, storedPlayer))
+    );
+    const missingStored = stored.filter((storedPlayer) =>
+      !ordered.some((lineupPlayer) => samePlayer(lineupPlayer, storedPlayer))
+    );
+    const starters = uniquePlayers([...ordered, ...missingStored]);
+
+    if (starters.length < EXPECTED_STARTERS) {
+      return uniquePlayers([...starters, ...squad, ...lineup]).slice(0, EXPECTED_STARTERS);
+    }
+    return starters.slice(0, EXPECTED_STARTERS);
+  }
+
+  if (squad.length) {
+    return uniquePlayers([...squad, ...lineup]).slice(0, EXPECTED_STARTERS);
+  }
+
+  return uniquePlayers(lineup).slice(0, EXPECTED_STARTERS);
 }
 
 function rowSortTime(row) {
-  return row.startedDate?.getTime() || scheduledDate(row)?.getTime() || 0;
+  return toDate(row.startedAt)?.getTime() || scheduledDate(row)?.getTime() || 0;
 }
 
-function buildRow(match, profiles) {
-  const startEvent = findStartEvent(match);
-  const starterUid = asText(
-    startEvent?.reportedBy ||
-    match.ownerUid ||
-    match.approvedFromAssistant ||
-    match.assistantUid
-  );
-  const profile = profiles.get(starterUid);
-  const startedDate = toDate(match.startedAt) || toDate(startEvent?.reportedAt);
-  const unknown = !starterUid || !profileName(profile, starterUid) || profileName(profile, starterUid) === "Ukjent / eldre kamp";
-
+function buildRow(match) {
   return {
     ...match,
-    starterUid,
-    starterKey: unknown ? UNKNOWN_KEY : starterUid,
-    starterName: profileName(profile, starterUid),
-    starterRole: roleLabel(profile?.role || match.role),
-    startedDate,
-    unknown
+    starters: getStarters(match)
   };
 }
 
 function setLoading(isLoading) {
   refreshBtn.disabled = isLoading;
-  starterFilter.disabled = isLoading;
+  playerFilter.disabled = isLoading;
   refreshBtn.textContent = isLoading ? "Laster…" : "Oppdater";
 }
 
 function renderError(error) {
-  console.error("Kunne ikke laste kampstartere:", error);
+  console.error("Kunne ikke laste startellevere:", error);
   matchList.replaceChildren();
   const card = makeElement("div", "stateCard");
   card.append(
@@ -216,72 +257,119 @@ function renderError(error) {
     makeElement("p", "", "Prøv å oppdatere siden. Hvis problemet fortsetter, sjekk tilgangen til kampdataene.")
   );
   matchList.appendChild(card);
-  starterSummary.innerHTML = '<div class="loadingRow">Ingen data tilgjengelig.</div>';
+  playerSummary.innerHTML = '<div class="loadingRow">Ingen data tilgjengelig.</div>';
   visibleCount.textContent = "";
 }
 
-function renderStats() {
-  const knownStarters = new Set(rows.filter((row) => !row.unknown).map((row) => row.starterUid));
-  const unknownMatches = rows.filter((row) => row.unknown).length;
-
-  matchTotal.textContent = String(rows.length);
-  starterTotal.textContent = String(knownStarters.size);
-  unknownTotal.textContent = String(unknownMatches);
-}
-
-function groupedStarters() {
+function playerGroups() {
   const groups = new Map();
   rows.forEach((row) => {
-    const current = groups.get(row.starterKey) || {
-      key: row.starterKey,
-      name: row.starterName,
-      unknown: row.unknown,
-      count: 0
-    };
-    current.count += 1;
-    groups.set(row.starterKey, current);
+    row.starters.forEach((player) => {
+      const key = normalizedName(player.name);
+      const current = groups.get(key) || {
+        key,
+        name: player.name,
+        isLoan: player.isLoan,
+        count: 0
+      };
+      current.count += 1;
+      current.isLoan = current.isLoan || player.isLoan;
+      groups.set(key, current);
+    });
   });
 
   return [...groups.values()].sort((a, b) => {
-    if (a.unknown !== b.unknown) return a.unknown ? 1 : -1;
     if (a.count !== b.count) return b.count - a.count;
     return a.name.localeCompare(b.name, "no");
   });
 }
 
-function renderStarterSummary() {
-  starterSummary.replaceChildren();
-  const groups = groupedStarters();
+function initials(name) {
+  const parts = asText(name).split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+}
+
+function renderStats() {
+  const incompleteMatches = rows.filter((row) => row.starters.length !== EXPECTED_STARTERS).length;
+  matchTotal.textContent = String(rows.length);
+  playerTotal.textContent = String(playerGroups().length);
+  incompleteTotal.textContent = String(incompleteMatches);
+}
+
+function renderPlayerSummary() {
+  playerSummary.replaceChildren();
+  const groups = playerGroups();
 
   if (!groups.length) {
-    starterSummary.appendChild(makeElement("div", "loadingRow", "Ingen startede kamper registrert."));
+    playerSummary.appendChild(makeElement("div", "loadingRow", "Ingen lagrede startellevere funnet."));
     return;
   }
 
   groups.forEach((group) => {
-    const card = makeElement("article", `personSummary${group.unknown ? " unknown" : ""}`);
+    const card = makeElement("article", `personSummary${group.isLoan ? " unknown" : ""}`);
     card.append(
-      makeElement("span", "personAvatar", initials(group.name, group.unknown)),
+      makeElement("span", "personAvatar", initials(group.name)),
       makeElement("strong", "personName", group.name),
       makeElement("span", "personCount", String(group.count))
     );
-    starterSummary.appendChild(card);
+    playerSummary.appendChild(card);
   });
 }
 
 function renderFilter() {
-  const previous = starterFilter.value;
-  starterFilter.replaceChildren();
-  starterFilter.appendChild(new Option("Alle", "all"));
+  const previous = playerFilter.value;
+  playerFilter.replaceChildren();
+  playerFilter.appendChild(new Option("Alle kamper", "all"));
 
-  groupedStarters().forEach((group) => {
-    const suffix = group.count === 1 ? "1 kamp" : `${group.count} kamper`;
-    starterFilter.appendChild(new Option(`${group.name} · ${suffix}`, group.key));
-  });
+  playerGroups()
+    .sort((a, b) => a.name.localeCompare(b.name, "no"))
+    .forEach((group) => {
+      const suffix = group.count === 1 ? "1 start" : `${group.count} starter`;
+      playerFilter.appendChild(new Option(`${group.name} · ${suffix}`, group.key));
+    });
 
-  if ([...starterFilter.options].some((option) => option.value === previous)) {
-    starterFilter.value = previous;
+  if ([...playerFilter.options].some((option) => option.value === previous)) {
+    playerFilter.value = previous;
   }
+}
+
+function buildLineup(row) {
+  const panel = makeElement("div", "lineupPanel");
+  const header = makeElement("div", "lineupHeader");
+  header.append(
+    makeElement("strong", "", "Startellever"),
+    makeElement(
+      "span",
+      row.starters.length === EXPECTED_STARTERS ? "" : "unknownText",
+      `${row.starters.length} av ${EXPECTED_STARTERS} spillere`
+    )
+  );
+  panel.appendChild(header);
+
+  if (!row.starters.length) {
+    panel.appendChild(
+      makeElement(
+        "div",
+        "lineupMissing",
+        "Denne kampen har ingen startellever lagret. Dette gjelder trolig en eldre kamp."
+      )
+    );
+    return panel;
+  }
+
+  const grid = makeElement("div", "lineupGrid");
+  row.starters.forEach((player, index) => {
+    const chip = makeElement("div", `playerChip${player.isLoan ? " loan" : ""}`);
+    chip.title = player.isLoan ? `${player.name} · lånespiller` : player.name;
+    chip.append(
+      makeElement("span", "playerNumber", String(index + 1)),
+      makeElement("strong", "", player.name)
+    );
+    grid.appendChild(chip);
+  });
+  panel.appendChild(grid);
+  return panel;
 }
 
 function buildMatchCard(row) {
@@ -295,35 +383,35 @@ function buildMatchCard(row) {
   );
 
   const fixture = makeElement("div", "fixtureInfo");
+  const details = [
+    typeLabel(row.meta?.type || row.type),
+    scoreLabel(row),
+    asText(row.formation) ? `Formasjon ${asText(row.formation)}` : ""
+  ].filter(Boolean);
   fixture.append(
     makeElement("span", "", formatScheduled(row)),
     makeElement("strong", "", fixtureLabel(row)),
-    makeElement("small", "", [typeLabel(row.meta?.type || row.type), scoreLabel(row)].filter(Boolean).join(" · "))
+    makeElement("small", "", details.join(" · "))
   );
 
-  const status = makeElement("span", `statusBadge${ACTIVE_STATUSES.has(asText(row.status).toUpperCase()) ? " live" : ""}`, statusLabel(asText(row.status).toUpperCase()));
+  const statusValue = asText(row.status).toUpperCase();
+  const status = makeElement(
+    "span",
+    `statusBadge${ACTIVE_STATUSES.has(statusValue) ? " live" : ""}`,
+    statusLabel(statusValue)
+  );
   main.append(dateBadge, fixture, status);
-
-  const starter = makeElement("div", "starterRow");
-  starter.appendChild(makeElement("span", `starterAvatar${row.unknown ? " unknown" : ""}`, initials(row.starterName, row.unknown)));
-
-  const starterInfo = makeElement("div", "starterInfo");
-  starterInfo.append(
-    makeElement("span", "", "STARTET AV"),
-    makeElement("strong", row.unknown ? "unknownText" : "", row.starterName),
-    makeElement("small", "", row.starterRole)
-  );
-  starter.append(starterInfo, makeElement("span", `startedTime${row.startedDate ? "" : " unknownText"}`, formatStartedAt(row.startedDate)));
-
-  card.append(main, starter);
+  card.append(main, buildLineup(row));
   return card;
 }
 
 function renderMatches() {
-  const selected = starterFilter.value;
+  const selected = playerFilter.value;
   const filtered = selected === "all"
     ? rows
-    : rows.filter((row) => row.starterKey === selected);
+    : rows.filter((row) =>
+        row.starters.some((player) => normalizedName(player.name) === selected)
+      );
 
   visibleCount.textContent = filtered.length === 1 ? "1 kamp" : `${filtered.length} kamper`;
   matchList.replaceChildren();
@@ -332,7 +420,7 @@ function renderMatches() {
     const card = makeElement("div", "stateCard");
     card.append(
       makeElement("strong", "", "Ingen kamper å vise"),
-      makeElement("p", "", "Det finnes ingen startede kamper for dette valget.")
+      makeElement("p", "", "Det finnes ingen startellevere for dette valget.")
     );
     matchList.appendChild(card);
     return;
@@ -346,23 +434,16 @@ async function loadOverview() {
   visibleCount.textContent = "";
 
   try {
-    const [matchesSnapshot, usersSnapshot] = await Promise.all([
-      getDocs(collection(db, "matches")),
-      getDocs(collection(db, "users"))
-    ]);
-
-    const profiles = new Map();
-    usersSnapshot.forEach((snapshot) => profiles.set(snapshot.id, snapshot.data() || {}));
-
+    const matchesSnapshot = await getDocs(collection(db, "matches"));
     const matches = [];
     matchesSnapshot.forEach((snapshot) => {
       const match = { id: snapshot.id, ...snapshot.data() };
-      if (isStartedMatch(match)) matches.push(buildRow(match, profiles));
+      if (isStartedMatch(match)) matches.push(buildRow(match));
     });
 
     rows = matches.sort((a, b) => rowSortTime(b) - rowSortTime(a));
     renderStats();
-    renderStarterSummary();
+    renderPlayerSummary();
     renderFilter();
     renderMatches();
   } catch (error) {
@@ -386,7 +467,6 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    currentUser = user;
     userLine.textContent = user.email || "Innlogget trener";
     await loadOverview();
   } catch (error) {
