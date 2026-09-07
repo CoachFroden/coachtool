@@ -52,6 +52,14 @@ function normalizedName(value) {
   return asText(value).toLocaleLowerCase("no").replace(/\s+/g, " ");
 }
 
+function shortName(value) {
+  return asText(value).split(/\s+/).filter(Boolean)[0] || "Ukjent";
+}
+
+function playerKey(player) {
+  return normalizedName(shortName(player?.name));
+}
+
 function toDate(value) {
   if (!value) return null;
   if (typeof value.toDate === "function") return value.toDate();
@@ -192,7 +200,7 @@ function storedPlayerStarters(match) {
 
 function samePlayer(a, b) {
   if (a.id && b.id && a.id === b.id) return true;
-  return normalizedName(a.name) === normalizedName(b.name);
+  return playerKey(a) === playerKey(b);
 }
 
 function uniquePlayers(players) {
@@ -265,10 +273,10 @@ function playerGroups() {
   const groups = new Map();
   rows.forEach((row) => {
     row.starters.forEach((player) => {
-      const key = normalizedName(player.name);
+      const key = playerKey(player);
       const current = groups.get(key) || {
         key,
-        name: player.name,
+        name: shortName(player.name),
         isLoan: player.isLoan,
         count: 0
       };
@@ -364,7 +372,7 @@ function buildLineup(row) {
     chip.title = player.isLoan ? `${player.name} · lånespiller` : player.name;
     chip.append(
       makeElement("span", "playerNumber", String(index + 1)),
-      makeElement("strong", "", player.name)
+      makeElement("strong", "", shortName(player.name))
     );
     grid.appendChild(chip);
   });
@@ -410,7 +418,7 @@ function renderMatches() {
   const filtered = selected === "all"
     ? rows
     : rows.filter((row) =>
-        row.starters.some((player) => normalizedName(player.name) === selected)
+        row.starters.some((player) => playerKey(player) === selected)
       );
 
   visibleCount.textContent = filtered.length === 1 ? "1 kamp" : `${filtered.length} kamper`;
