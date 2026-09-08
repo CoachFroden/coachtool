@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "trailingSlash": true,
+  "rewrites": [
+    {
+      "source": "/bronco/:path*",
+      "destination": "https://bronco1200-v4-frodes-projects-5396bf39.vercel.app/:path*"
+    },
+    {
+      "source": "/cooper/:path*",
+      "destination": "https://coopertest.vercel.app/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/bronco/:path*",
+      "headers": [
+        { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
+      ]
+    },
+    {
+      "source": "/cooper/:path*",
+      "headers": [
+        { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
+      ]
+    }
+  ]
+}
