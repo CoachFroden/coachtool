@@ -1,0 +1,19 @@
+{
+  "name": "Cooper 12 – Samnanger G14",
+  "short_name": "Cooper 12",
+  "description": "Cooper-test med rundetelling, sluttposisjon, historikk og spillerutvikling.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07100d",
+  "theme_color": "#07100d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
