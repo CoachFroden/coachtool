@@ -3,25 +3,33 @@
   "trailingSlash": true,
   "rewrites": [
     {
+      "source": "/bronco/",
+      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/broncotest@main/index.html"
+    },
+    {
       "source": "/bronco/:path*",
-      "destination": "https://bronco1200-v4-frodes-projects-5396bf39.vercel.app/:path*"
+      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/broncotest@main/:path*"
+    },
+    {
+      "source": "/cooper/",
+      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/coopertest@main/index.html"
     },
     {
       "source": "/cooper/:path*",
-      "destination": "https://coopertest.vercel.app/:path*"
+      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/coopertest@main/:path*"
     }
   ],
   "headers": [
     {
       "source": "/bronco/:path*",
       "headers": [
-        { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     },
     {
       "source": "/cooper/:path*",
       "headers": [
-        { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     }
   ]
