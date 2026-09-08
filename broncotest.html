@@ -3,22 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#07100d">
+  <meta name="theme-color" content="#070b12">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Bronco 1200</title>
   <style>
-    html,body{margin:0;width:100%;height:100%;background:#07100d;overflow:hidden}
-    body{position:fixed;inset:0}
-    iframe{display:block;width:100%;height:100dvh;border:0;background:#07100d}
+    html,body{margin:0;min-height:100%;background:#070b12;color:#f5f7fb;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .loader{position:fixed;inset:0;display:grid;place-items:center;padding:28px;background:#070b12;text-align:center}
+    .loader strong{display:block;font-size:22px}.loader p{margin:8px 0 0;color:#8290a6;font-size:13px}.loader button{margin-top:18px;border:0;border-radius:999px;padding:12px 20px;background:#c8ff3d;color:#07100d;font-weight:900}
   </style>
 </head>
 <body>
-  <iframe
-    src="https://bronco1200-v4-frodes-projects-5396bf39.vercel.app/"
-    title="Bronco 1200"
-    allow="fullscreen; screen-wake-lock"
-  ></iframe>
+  <div id="loader" class="loader"><div><strong>BRONCO 1200</strong><p>Laster Race Control …</p></div></div>
+  <script>
+    const BRONCO_BASE = "https://bronco1200-v4-frodes-projects-5396bf39.vercel.app";
+
+    async function loadBronco() {
+      const loader = document.getElementById("loader");
+      try {
+        const response = await fetch(`${BRONCO_BASE}/?coachtool=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        let html = await response.text();
+        html = html
+          .replaceAll('href="/', `href="${BRONCO_BASE}/`)
+          .replaceAll("href='/", `href='${BRONCO_BASE}/`)
+          .replaceAll('src="/', `src="${BRONCO_BASE}/`)
+          .replaceAll("src='/", `src='${BRONCO_BASE}/`);
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        console.error("Bronco kunne ikke lastes i CoachTool", error);
+        loader.innerHTML = `<div><strong>Kunne ikke laste Bronco</strong><p>Prøv igjen om noen sekunder. Bronco-deployen kan fortsatt være på vei ut.</p><button type="button" onclick="location.reload()">PRØV IGJEN</button></div>`;
+      }
+    }
+
+    loadBronco();
+  </script>
 </body>
 </html>
