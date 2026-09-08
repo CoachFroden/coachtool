@@ -1,24 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "trailingSlash": true,
-  "rewrites": [
-    {
-      "source": "/bronco/",
-      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/broncotest@main/index.html"
-    },
-    {
-      "source": "/bronco/:path*",
-      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/broncotest@main/:path*"
-    },
-    {
-      "source": "/cooper/",
-      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/coopertest@main/index.html"
-    },
-    {
-      "source": "/cooper/:path*",
-      "destination": "https://cdn.jsdelivr.net/gh/CoachFroden/coopertest@main/:path*"
-    }
-  ],
   "headers": [
     {
       "source": "/bronco/:path*",
