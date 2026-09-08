@@ -12,6 +12,12 @@
   <link rel="icon" href="https://cdn.jsdelivr.net/gh/CoachFroden/broncotest@main/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/CoachFroden/broncotest@main/styles.css?v=20260907-2" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/CoachFroden/broncotest@main/mobile-fixes.css?v=20260907-2" />
+  <style>
+    .coach-back-link{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(255,255,255,.045);color:#dfe7f2;text-decoration:none;font-size:11px;font-weight:900;letter-spacing:.03em;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+    .coach-back-link:active{transform:scale(.98)}
+    .auth-card .coach-back-link{margin-bottom:20px}
+    @media(max-width:480px){.coach-back-link{min-height:36px;padding:0 9px;font-size:10px}.topbar-actions{gap:6px}}
+  </style>
   <title>BRONCO // 1200</title>
 </head>
 <body>
@@ -21,6 +27,7 @@
 
   <div id="authGate" class="auth-gate">
     <section class="auth-card glass">
+      <a class="coach-back-link" href="../fremside.html" aria-label="Tilbake til CoachTool">← Coach</a>
       <div class="brand-mark">B//12</div>
       <p class="eyebrow">SAMNANGER PERFORMANCE</p>
       <h1>BRONCO<br><span>1200</span></h1>
@@ -41,6 +48,7 @@
         <span><strong>BRONCO 1200</strong><small>SAMNANGER G14</small></span>
       </button>
       <div class="topbar-actions">
+        <a class="coach-back-link" href="../fremside.html" aria-label="Tilbake til CoachTool">← Coach</a>
         <span id="cloudStatus" class="cloud-status"><i></i><span>Firestore</span></span>
         <button id="logoutBtn" class="icon-btn" title="Logg ut" aria-label="Logg ut">↗</button>
       </div>
